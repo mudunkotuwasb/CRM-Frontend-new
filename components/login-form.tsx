@@ -8,28 +8,47 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
+import api from "@/lib/api" // Import the configured axios instance
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulate authentication
-    setTimeout(() => {
-      // Demo: admin@demo.com = admin, staff@demo.com = staff
-      const userRole = email === "admin@demo.com" ? "admin" : "staff"
-      localStorage.setItem("userRole", userRole)
-      localStorage.setItem("userEmail", email)
+    try {
+    console.log("Sending request to:", process.env.NEXT_PUBLIC_API_URL + "/auth/login")
+    const response = await api.post("/auth/login", {
+      username: email,
+      password
+    })
+
+    console.log("Login response:", response.data)
+
+    if (response.data.token) {
+      localStorage.setItem("authToken", response.data.token)
+      localStorage.setItem("userRole", response.data.role)
+      localStorage.setItem("userEmail", response.data.email)
       localStorage.setItem("isAuthenticated", "true")
 
       router.push("/dashboard")
-      setIsLoading(false)
-    }, 1000)
+    } else {
+      throw new Error("No token received")
+    }
+  } catch (err: any) {
+    console.error("Full error object:", err)
+    const errorMessage = err.response?.data?.message 
+      || err.message 
+      || "Login failed. Please try again."
+    setError(errorMessage)
+  } finally {
+    setIsLoading(false)
+  }
   }
 
   return (
@@ -65,11 +84,6 @@ export function LoginForm() {
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-        <div className="mt-4 text-sm text-gray-600">
-          <p>Demo accounts:</p>
-          <p>Admin: admin@demo.com</p>
-          <p>Staff: staff@demo.com</p>
-        </div>
       </CardContent>
     </Card>
   )
