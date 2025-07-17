@@ -1,4 +1,7 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
+import axiosRetry from 'axios-retry';
+
+
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL, // Use env variable
@@ -10,6 +13,14 @@ const api = axios.create({
   withCredentials: true
 })
 
+axiosRetry(api, {
+  retries: 3,
+  retryDelay: (retryCount) => retryCount * 1000,
+  retryCondition: (error: AxiosError) => {
+    return axiosRetry.isNetworkError(error) || 
+           (error.response?.status !== undefined && error.response.status >= 500);
+  },
+});
 
 //Request interceptor for adding auth token
 api.interceptors.request.use((config) => {
