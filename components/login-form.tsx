@@ -1,54 +1,58 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
-import api from "@/lib/api" // Import the configured axios instance
+import api from "@/lib/api"
+
+// Utility function to persist auth data
+const persistAuthData = (token: string, role: string, email: string) => {
+  localStorage.setItem("authToken", token)
+  localStorage.setItem("userRole", role)
+  localStorage.setItem("userEmail", email)
+  localStorage.setItem("isAuthenticated", "true")
+}
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
   const [error, setError] = useState("")
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
     setIsLoading(true)
 
     try {
-    console.log("Sending request to:", process.env.NEXT_PUBLIC_API_URL + "/auth/login")
-    const response = await api.post("/auth/login", {
-      username: email,
-      password
-    })
+      console.log("Attempting login...") // Safer logging
+      const response = await api.post("/auth/login", {
+        username: email,
+        password
+      })
 
-    console.log("Login response:", response.data)
+      const { token, role, email: userEmail } = response.data
 
-    if (response.data.token) {
-      localStorage.setItem("authToken", response.data.token)
-      localStorage.setItem("userRole", response.data.role)
-      localStorage.setItem("userEmail", response.data.email)
-      localStorage.setItem("isAuthenticated", "true")
-
-      router.push("/dashboard")
-    } else {
-      throw new Error("No token received")
+      if (token) {
+        persistAuthData(token, role, userEmail)
+        router.push("/dashboard")
+      } else {
+        throw new Error("No token received")
+      }
+    } catch (err: any) {
+      console.error("Login error:", err.response?.status || err.message)
+      setError(
+        err.response?.data?.message || 
+        "Login failed. Please check your credentials and try again."
+      )
+    } finally {
+      setIsLoading(false)
     }
-  } catch (err: any) {
-    console.error("Full error object:", err)
-    const errorMessage = err.response?.data?.message 
-      || err.message 
-      || "Login failed. Please try again."
-    setError(errorMessage)
-  } finally {
-    setIsLoading(false)
-  }
   }
 
   return (
@@ -57,6 +61,11 @@ export function LoginForm() {
         <CardTitle>Login</CardTitle>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 text-sm text-red-500">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -67,6 +76,7 @@ export function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@demo.com or staff@demo.com"
               required
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -78,6 +88,7 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="password"
               required
+              disabled={isLoading}
             />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
