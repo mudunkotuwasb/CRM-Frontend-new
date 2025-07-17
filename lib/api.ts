@@ -6,26 +6,32 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
+  timeout: 10000,
   withCredentials: true
 })
 
-// new: Request interceptor for adding auth token
+
+//Request interceptor for adding auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
   if (token) {
-    config.headers.Authorization = token
+    config.headers.Authorization = `Bearer ${token}`;
   }
-  return config
+  return config;
+}, (error) => {
+  return Promise.reject(error);
 })
 
-// new: Response interceptor for handling 401 errors
+//Response interceptor for handling 401 errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('authToken')
-      window.location.href = '/login'
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userEmail');
+      window.location.href = '/login?session_expired=true';
     }
     return Promise.reject(error)
   }
