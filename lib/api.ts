@@ -4,7 +4,7 @@ import axiosRetry from 'axios-retry';
 
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL, // Use env variable
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -26,7 +26,8 @@ axiosRetry(api, {
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    const cleanToken = token.replace('Bearer ', '')
+    config.headers.Authorization = `Bearer ${cleanToken}`;
   }
   return config;
 }, (error) => {
@@ -38,12 +39,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
+       if (typeof window !== "undefined" && !window.location.pathname.includes('/auth/login')) {
       localStorage.removeItem('authToken')
       localStorage.removeItem('userRole');
       localStorage.removeItem('userEmail');
+      localStorage.removeItem('userId')
+        localStorage.removeItem('isAuthenticated')
       window.location.href = '/login?session_expired=true';
     }
+  }
     return Promise.reject(error)
   }
 )
