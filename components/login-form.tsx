@@ -11,17 +11,18 @@ import api from "@/lib/api"
 
 // Utility function to persist auth data
 const persistAuthData = (token: string, role: string, email: string) => {
-  localStorage.setItem("authToken", token)
+  if (typeof window !== "undefined"){localStorage.setItem("authToken", token)
   localStorage.setItem("userRole", role)
   localStorage.setItem("userEmail", email)
   localStorage.setItem("isAuthenticated", "true")
+  }
 }
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,11 +31,17 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      console.log("Attempting login...") // Safer logging
+      if (process.env.NODE_ENV === "development") {
+        console.log("Attempting login...")
+      }
       const response = await api.post("/auth/login", {
         username: email,
         password
       })
+
+      if (!response.data || !response.data.token) {
+        throw new Error("Invalid response structure from server side")
+      }
 
       const { token, role, email: userEmail } = response.data
 
