@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import api from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import axios from 'axios';
 
 interface Business {
   _id: string
@@ -94,11 +95,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       throw new Error('Please enter a valid email address');
     }
 
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
     const userId = localStorage.getItem('userId');
     if (!userId) {
       throw new Error('No user session found');
@@ -111,16 +107,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       email: formData.email.trim(),
       phone: formData.phone.trim(),
       department: formData.department.trim(),
-      status: formData.status,
-      assignedTo: userId,
-      createdBy: userId
+      status: formData.status
     };
-    const response = await api.post("/api/company-representative/addContact", payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
+
+      console.log('Full payload:', payload); 
+
+    const response = await api.post("/company-representative/addContact", payload);
 
     if (!response.data?.success) {
       throw new Error(response.data?.message || "Server responded with failure");
@@ -139,30 +131,22 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
 
   } catch (error: unknown) {
+    console.error('Submission error:', error);
     let errorMessage = "An unknown error occurred";
+    
     if (error instanceof Error) {
       errorMessage = error.message;
-      console.error('Submission error:', error instanceof Error ? error.message : 'Unknown error');
     }
-    if (typeof error === 'object' && error !== null && 'response' in error) {
-      const apiError = error as { 
-        response?: { 
-          status: number; 
-          data?: { message?: string } 
-        } 
-      };
-      if (apiError.response?.status === 401) {
+    
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        errorMessage = "Session expired. Please login again.";
         localStorage.removeItem('authToken');
         localStorage.removeItem('token');
         localStorage.removeItem('userId');
-        errorMessage = "Session expired. Please login again.";
         router.push('/auth/login?session_expired=true');
-      } else if (apiError.response?.data?.message) {
-        errorMessage = apiError.response.data.message;
-      } else if (apiError.response?.status === 400) {
-        errorMessage = "Invalid data submitted. Please check all fields.";
-      } else if (apiError.response?.status === 404) {
-        errorMessage = "The requested resource was not found. Please check the company selection.";
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
       }
     }
 
