@@ -13,14 +13,14 @@ const api = axios.create({
   withCredentials: true
 })
 
-axiosRetry(api, {
-  retries: 3,
-  retryDelay: (retryCount) => retryCount * 1000,
-  retryCondition: (error: AxiosError) => {
-    return axiosRetry.isNetworkError(error) || 
-           (error.response?.status !== undefined && error.response.status >= 500);
-  },
-});
+// axiosRetry(api, {
+//   retries: 3,
+//   retryDelay: (retryCount) => retryCount * 1000,
+//   retryCondition: (error: AxiosError) => {
+//     return axiosRetry.isNetworkError(error) || 
+//            (error.response?.status !== undefined && error.response.status >= 500);
+//   },
+// });
 
 //Request interceptor for adding auth token
 api.interceptors.request.use((config) => {
