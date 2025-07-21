@@ -1,35 +1,75 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
+import api from "@/lib/api"
+
+// Utility function to persist auth data
+const persistAuthData = (token: string, role: string, email: string, userId: string) => {
+  if (typeof window !== "undefined"){
+  const formattedUserId = userId && userId.length === 24 ? userId : generateFallbackId();
+  localStorage.setItem("authToken", token)
+  localStorage.setItem("token", token)
+  localStorage.setItem("userRole", role)
+  localStorage.setItem("userEmail", email)
+  localStorage.setItem("userId", formattedUserId)
+  localStorage.setItem("isAuthenticated", "true")
+  }
+}
+
+const generateFallbackId = () => {
+  return 'xxxxxxxxxxxxxxxxxxxxxxxx'.replace(/[x]/g, () => 
+    Math.floor(Math.random() * 16).toString(16)
+  );
+}
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
     setIsLoading(true)
 
-    // Simulate authentication
-    setTimeout(() => {
-      // Demo: admin@demo.com = admin, staff@demo.com = staff
-      const userRole = email === "admin@demo.com" ? "admin" : "staff"
-      localStorage.setItem("userRole", userRole)
-      localStorage.setItem("userEmail", email)
-      localStorage.setItem("isAuthenticated", "true")
+    try {
+      if (process.env.NODE_ENV === "development") {
+        console.log("Attempting login...")
+      }
+      const response = await api.post("/auth/login", {
+        username: email,
+        password
+      })
 
-      router.push("/dashboard")
+      if (!response.data || !response.data.token) {
+        throw new Error("Invalid response structure from server side")
+      }
+
+      const { token, role, email: userEmail, user_id  } = response.data
+
+      if (token) {
+        persistAuthData(token, role, userEmail, user_id)
+        router.push("/dashboard")
+      } else {
+        throw new Error("No token received")
+      }
+    } catch (err: any) {
+      console.error("Login error:", err.response?.status || err.message)
+      setError(
+        err.response?.data?.message || 
+        "Login failed. Please check your credentials and try again."
+      )
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -38,6 +78,11 @@ export function LoginForm() {
         <CardTitle>Login</CardTitle>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 text-sm text-red-500">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -48,6 +93,7 @@ export function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@demo.com or staff@demo.com"
               required
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -59,17 +105,13 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="password"
               required
+              disabled={isLoading}
             />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-        <div className="mt-4 text-sm text-gray-600">
-          <p>Demo accounts:</p>
-          <p>Admin: admin@demo.com</p>
-          <p>Staff: staff@demo.com</p>
-        </div>
       </CardContent>
     </Card>
   )

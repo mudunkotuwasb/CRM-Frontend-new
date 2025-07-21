@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Phone, TrendingUp, Target, Plus, HelpCircle } from "lucide-react"
+import { ContactPopup } from "@/components/ui/contactpopup"
 
 export function StaffDashboard() {
   const stats = {
@@ -23,10 +24,7 @@ export function StaffDashboard() {
             <HelpCircle className="mr-2 h-4 w-4" />
             Request Help
           </Button>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Contact
-          </Button>
+          <ContactPopup />
         </div>
       </div>
 
