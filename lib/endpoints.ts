@@ -5,6 +5,7 @@ const endpoints = {
     logout: `/auth/logout`
   },
   contact: {
+    addContact: `/contact-manager/addContact`,
     
   }
 } as const;

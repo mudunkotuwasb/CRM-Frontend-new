@@ -11,23 +11,50 @@ import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
 
 // Utility function to persist auth data
-const persistAuthData = (token: string, role: string, email: string, userId: string) => {
+const persistAuthData = (token: string, role: string, email: string, username: string, userId: string) => {
   if (typeof window !== "undefined") {
-    const formattedUserId = userId && userId.length === 24 ? userId : generateFallbackId();
-    localStorage.setItem("authToken", token)
-    localStorage.setItem("token", token)
-    localStorage.setItem("userRole", role)
-    localStorage.setItem("userEmail", email)
-    localStorage.setItem("userId", formattedUserId)
-    localStorage.setItem("isAuthenticated", "true")
+    const cleanToken = token.replace('Bearer ', '');
+    
+    // Clear any existing auth data first
+    const authKeys = [
+      'authToken', 'token', 'userId', 'user_id',
+      'userRole', 'userEmail', 'username', 'isAuthenticated'
+    ];
+    authKeys.forEach(key => localStorage.removeItem(key));
+    
+    // Extract user_id from token if not provided
+    let finalUserId = userId;
+    if (!finalUserId || finalUserId === "undefined") {
+      try {
+        const payload = JSON.parse(atob(cleanToken.split('.')[1]));
+        finalUserId = payload.user_id;
+      } catch (e) {
+        console.error("Failed to extract user_id from token", e);
+      }
+    }
+
+    // Store new auth data
+    localStorage.setItem("authToken", cleanToken);
+    localStorage.setItem("token", cleanToken);
+    localStorage.setItem("userRole", role);
+    localStorage.setItem("userEmail", email);
+    localStorage.setItem("username", username);
+    
+    // Store user ID with both key variations
+    localStorage.setItem("userId", finalUserId);
+    localStorage.setItem("user_id", finalUserId);
+    localStorage.setItem("isAuthenticated", "true");
+    
+    // Debug logging
+    console.log("Auth data stored:", {
+      userId: localStorage.getItem("userId"),
+      user_id: localStorage.getItem("user_id"),
+      token: localStorage.getItem("token"),
+      extractedFromToken: finalUserId
+    });
   }
 }
 
-const generateFallbackId = () => {
-  return 'xxxxxxxxxxxxxxxxxxxxxxxx'.replace(/[x]/g, () =>
-    Math.floor(Math.random() * 16).toString(16)
-  );
-}
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
@@ -37,36 +64,55 @@ export function LoginForm() {
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+  e.preventDefault();
+  setError("");
+  setIsLoading(true);
 
-    try {
-      const response = await api.post(endpoints.auth.login, {
-        email,   //username to email
-        password
-      })
+  try {
+    const response = await api.post(endpoints.auth.login, {
+      email,
+      password
+    });
 
-      if (!response.data || !response.data.token) {
-        throw new Error("Invalid response structure from server side")
-      }
+    if (response.data && response.data.success) {
+      const { token, role, email: userEmail, username, user_id } = response.data;
+      
+      // Debug the response structure
+      console.log("Login response:", {
+        token,
+        user_id, 
+        fullResponse: response.data
+      });
 
-      const { token, role, email: userEmail, user_id} = response.data
       if (token) {
-        persistAuthData(token, role, userEmail, user_id)
-        router.push("/dashboard")
+        persistAuthData(
+          token, 
+          role, 
+          userEmail, 
+          username, 
+          user_id || response.data.user?.id || response.data.user?._id
+        );
+        router.push("/dashboard");
       } else {
-        throw new Error("Login attempt failed!");
+        throw new Error("Token not received in response");
       }
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-        "Login failed. Please check your credentials and try again."
-      )
-    } finally {
-      setIsLoading(false)
+    } else {
+      throw new Error(response.data?.message || "Login failed");
     }
+  } catch (err: any) {
+    console.error("Login error:", err);
+    if (err.response?.data?.reason === "password") {
+      setError("Invalid password");
+    } else if (err.response?.data?.message) {
+      setError(err.response.data.message);
+    } else {
+      setError("Login failed. Please check your credentials and try again.");
+    }
+  } finally {
+    setIsLoading(false);
   }
+}
+
 
   return (
     <Card>

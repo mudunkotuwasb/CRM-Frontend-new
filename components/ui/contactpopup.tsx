@@ -10,49 +10,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import api from "@/lib/api"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import axios from 'axios';
-
-interface Business {
-  _id: string
-  businessName: string
-}
+import axios from "axios"
+import endpoints from "@/lib/endpoints"
 
 export function ContactPopup() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [businesses, setBusinesses] = useState<Business[]>([])
   const [formData, setFormData] = useState({
-    fullName: "",
-    roleTitle: "",
+    name: "",
     company: "",
+    position: "",
     email: "",
     phone: "",
-    department: "",
-    status: "LEAD",
+    status: "UNASSIGNED",
   })
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Fetch businesses when dialog opens
   useEffect(() => {
-    const fetchBusinesses = async () => {
-      try {
-        const response = await api.get("/company-representative/allBusiness")
-        // Ensure we're getting the data in correct format
-        const businessData = response.data.allBusinesses || response.data || []
-        setBusinesses(businessData)
-      } catch (error: any) {
-        console.error("Failed to fetch businesses", error)
-        toast.error("Failed to load companies")
-        if (error.response?.status === 401) {
-          router.push('/auth/login?session_expired=true')
-        }
-      }
-    }
-    
-    if (open) {
-      fetchBusinesses()
-    }
-  }, [open, router])
+    setIsMounted(true)
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -63,98 +40,105 @@ export function ContactPopup() {
     setFormData(prev => ({ ...prev, status: value }))
   }
 
-  const handleCompanyChange = (value: string) => {
-    setFormData(prev => ({ ...prev, company: value }))
-  }
-
+// In your ContactPopup component
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
-  
-  try {
-    // Validate form fields
-    const requiredFields = [
-      { field: 'fullName', name: 'Full Name' },
-      { field: 'roleTitle', name: 'Role/Title' },
-      { field: 'company', name: 'Company' },
-      { field: 'email', name: 'Email' },
-      { field: 'phone', name: 'Phone' },
-      { field: 'department', name: 'Department' }
-    ];
 
-    for (const { field, name } of requiredFields) {
+  try {
+    if (typeof window === "undefined") {
+      throw new Error("Window object not available");
+    }
+
+    // Validate all required fields are filled
+    const requiredFields = ['name', 'company', 'position', 'email', 'phone'];
+    for (const field of requiredFields) {
       if (!formData[field as keyof typeof formData]) {
-        throw new Error(`${name} is required`);
+        throw new Error(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`);
       }
     }
 
-    if (!/^[0-9a-fA-F]{24}$/.test(formData.company)) {
-      throw new Error('Invalid company selection');
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      throw new Error('Please enter a valid email address');
-    }
-
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      throw new Error('No user session found');
+    // Get session data
+    const userId = localStorage.getItem("user_id") || localStorage.getItem("userId");
+    const authToken = localStorage.getItem("authToken") || localStorage.getItem("token");
+    
+    if (!userId || userId === "undefined" || userId === "null") {
+      throw new Error("Please login again");
     }
 
+    if (!authToken) {
+      throw new Error("Authentication token missing");
+    }
+
+    // Prepare payload to match backend schema exactly
+    const currentDate = new Date();
     const payload = {
-      fullName: formData.fullName.trim(),
-      roleTitle: formData.roleTitle.trim(),
-      company: formData.company,
-      email: formData.email.trim(),
-      phone: formData.phone.trim(),
-      department: formData.department.trim(),
-      status: formData.status
+      name: formData.name.trim(),
+      company: formData.company.trim(),
+      position: formData.position.trim(),
+      contactInfo: {  // Changed to match backend expectation
+        email: formData.email.trim(),
+        phone: formData.phone.trim()
+      },
+      uploadedBy: userId,
+      uploadDate: currentDate.toISOString(), // Fixed field name (removed extra 'D')
+      status: formData.status,
+      assignedTo: "Unassigned",
+      lastContact: new Date(0).toISOString()
     };
 
-      console.log('Full payload:', payload); 
+    console.log("Final payload being sent:", payload);
 
-    const response = await api.post("/company-representative/addContact", payload);
+    const response = await api.post(endpoints.contact.addContact, payload);
 
     if (!response.data?.success) {
-      throw new Error(response.data?.message || "Server responded with failure");
+      throw new Error(response.data?.message || "Failed to add contact");
     }
 
     toast.success("Contact added successfully");
     setOpen(false);
     setFormData({
-      fullName: "",
-      roleTitle: "",
+      name: "",
       company: "",
+      position: "",
       email: "",
       phone: "",
-      department: "",
-      status: "LEAD",
+      status: "UNASSIGNED",
     });
 
   } catch (error: unknown) {
-    console.error('Submission error:', error);
-    let errorMessage = "An unknown error occurred";
-    
     if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-    
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
-        errorMessage = "Session expired. Please login again.";
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userId');
-        router.push('/auth/login?session_expired=true');
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      console.error("Submission error:", error.message);
+      
+      let errorMessage = error.message;
+      
+      if (axios.isAxiosError(error)) {
+        console.error("Backend response:", error.response?.data);
+        
+        if (error.response?.status === 500) {
+          errorMessage = "Failed to add contact. Please check all fields and try again.";
+        }
+        
+        if (error.response?.status === 401) {
+          errorMessage = "Session expired. Please login again";
+          // Clear auth data
+          ['authToken', 'token', 'userId', 'user_id'].forEach(key => 
+            localStorage.removeItem(key)
+          );
+          router.push("/auth/login");
+        }
       }
+      
+      toast.error(errorMessage);
+    } else {
+      console.error("Unknown error:", error);
+      toast.error("Failed to add contact");
     }
-
-    toast.error(errorMessage);
   } finally {
     setLoading(false);
   }
 };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -169,28 +153,14 @@ const handleSubmit = async (e: React.FormEvent) => {
           <DialogTitle>Add New Contact</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-          {/* Form fields */}
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="fullName" className="text-right">
-              Full Name
+            <Label htmlFor="name" className="text-right">
+              Name
             </Label>
             <Input
-              id="fullName"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              className="col-span-3"
-              required
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="roleTitle" className="text-right">
-              Role/Title
-            </Label>
-            <Input
-              id="roleTitle"
-              name="roleTitle"
-              value={formData.roleTitle}
+              id="name"
+              name="name"
+              value={formData.name}
               onChange={handleChange}
               className="col-span-3"
               required
@@ -200,22 +170,27 @@ const handleSubmit = async (e: React.FormEvent) => {
             <Label htmlFor="company" className="text-right">
               Company
             </Label>
-            <Select 
+            <Input
+              id="company"
+              name="company"
               value={formData.company}
-              onValueChange={handleCompanyChange}
+              onChange={handleChange}
+              className="col-span-3"
               required
-            >
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a company" />
-              </SelectTrigger>
-              <SelectContent>
-                {businesses.map((business) => (
-                  <SelectItem key={business._id} value={business._id}>
-                    {business.businessName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="position" className="text-right">
+              Position
+            </Label>
+            <Input
+              id="position"
+              name="position"
+              value={formData.position}
+              onChange={handleChange}
+              className="col-span-3"
+              required
+            />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
@@ -245,19 +220,6 @@ const handleSubmit = async (e: React.FormEvent) => {
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="department" className="text-right">
-              Department
-            </Label>
-            <Input
-              id="department"
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              className="col-span-3"
-              required
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="status" className="text-right">
               Status
             </Label>
@@ -270,9 +232,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                <SelectItem value="PROSPECT">PROSPECT</SelectItem>
-                <SelectItem value="LEAD">LEAD</SelectItem>
+                <SelectItem value="ASSIGNED">ASSIGNED</SelectItem>
+                <SelectItem value="UNASSIGNED">UNASSIGNED</SelectItem>
               </SelectContent>
             </Select>
           </div>
