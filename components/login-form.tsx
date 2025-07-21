@@ -43,7 +43,7 @@ export function LoginForm() {
 
     try {
       const response = await api.post(endpoints.auth.login, {
-        email,
+        email,   //username to email
         password
       })
 
