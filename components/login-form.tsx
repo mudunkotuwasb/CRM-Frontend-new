@@ -11,7 +11,7 @@ import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
 
 // Utility function to persist auth data
-const persistAuthData = (token: string, role: string, email: string, userId: string) => {
+const persistAuthData = (token: string, role: string, email: string, userId: string, username: string) => {
   if (typeof window !== "undefined") {
     const formattedUserId = userId && userId.length === 24 ? userId : generateFallbackId();
     localStorage.setItem("authToken", token)
@@ -19,6 +19,7 @@ const persistAuthData = (token: string, role: string, email: string, userId: str
     localStorage.setItem("userRole", role)
     localStorage.setItem("userEmail", email)
     localStorage.setItem("userId", formattedUserId)
+    localStorage.setItem("username", username)
     localStorage.setItem("isAuthenticated", "true")
   }
 }
@@ -43,7 +44,7 @@ export function LoginForm() {
 
     try {
       const response = await api.post(endpoints.auth.login, {
-        email: email,
+        username: email,
         password
       })
 
@@ -51,9 +52,9 @@ export function LoginForm() {
         throw new Error("Invalid response structure from server side")
       }
 
-      const { token, role, email: userEmail, user_id } = response.data
+      const { token, role, email: userEmail, user_id, username } = response.data
       if (token) {
-        persistAuthData(token, role, userEmail, user_id)
+        persistAuthData(token, role, userEmail, user_id, username)
         router.push("/dashboard")
       } else {
         throw new Error("Login attempt failed!");
