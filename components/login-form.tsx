@@ -1,29 +1,30 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
-import api from "@/lib/api"
+import type React from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import api from "@/lib/api";
+import endpoints from "@/lib/endpoints";
 
 // Utility function to persist auth data
 const persistAuthData = (token: string, role: string, email: string, userId: string) => {
-  if (typeof window !== "undefined"){
-  const formattedUserId = userId && userId.length === 24 ? userId : generateFallbackId();
-  localStorage.setItem("authToken", token)
-  localStorage.setItem("token", token)
-  localStorage.setItem("userRole", role)
-  localStorage.setItem("userEmail", email)
-  localStorage.setItem("userId", formattedUserId)
-  localStorage.setItem("isAuthenticated", "true")
+  if (typeof window !== "undefined") {
+    const formattedUserId = userId && userId.length === 24 ? userId : generateFallbackId();
+    localStorage.setItem("authToken", token)
+    localStorage.setItem("token", token)
+    localStorage.setItem("userRole", role)
+    localStorage.setItem("userEmail", email)
+    localStorage.setItem("userId", formattedUserId)
+    localStorage.setItem("isAuthenticated", "true")
   }
 }
 
 const generateFallbackId = () => {
-  return 'xxxxxxxxxxxxxxxxxxxxxxxx'.replace(/[x]/g, () => 
+  return 'xxxxxxxxxxxxxxxxxxxxxxxx'.replace(/[x]/g, () =>
     Math.floor(Math.random() * 16).toString(16)
   );
 }
@@ -41,11 +42,8 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      if (process.env.NODE_ENV === "development") {
-        console.log("Attempting login...")
-      }
-      const response = await api.post("/auth/login", {
-        username: email,
+      const response = await api.post(endpoints.auth.login, {
+        email: email,
         password
       })
 
@@ -53,18 +51,16 @@ export function LoginForm() {
         throw new Error("Invalid response structure from server side")
       }
 
-      const { token, role, email: userEmail, user_id  } = response.data
-
+      const { token, role, email: userEmail, user_id } = response.data
       if (token) {
         persistAuthData(token, role, userEmail, user_id)
         router.push("/dashboard")
       } else {
-        throw new Error("No token received")
+        throw new Error("Login attempt failed!");
       }
     } catch (err: any) {
-      console.error("Login error:", err.response?.status || err.message)
       setError(
-        err.response?.data?.message || 
+        err.response?.data?.message ||
         "Login failed. Please check your credentials and try again."
       )
     } finally {
