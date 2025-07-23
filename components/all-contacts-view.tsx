@@ -1,38 +1,37 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ContactDetailsModal } from "@/components/contact-details-modal"
 import { Search, Plus, Filter, Users, Eye, Upload, Download } from "lucide-react"
+import api from "@/lib/api"
+import endpoints from "@/lib/endpoints"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import axios from "axios"
 
 interface Contact {
-  id: number
+  _id: string
   name: string
   company: string
-  role: string
-  phone: string
-  email: string
-  uploadedBy: string
-  uploadedDate: string
-  assignedTo: string | null
-  status: "unassigned" | "assigned"
-  lastContactDate?: string
-  contactHistory: ContactHistory[]
-}
-
-interface ContactHistory {
-  id: number
-  date: string
-  contactedBy: string
-  notes: string
-  outcome: string
-  nextAction?: string
-  scheduledDate?: string
+  position: string
+  contactInfo: {
+    email: string
+    phone: string
+  }
+  uploadedBy: {
+    _id: string
+    name?: string
+  } | string // Can be ObjectId string or populated user object
+  uploadDate: string | Date
+  assignedTo: string
+  status: "ASSIGNED" | "UNASSIGNED"
+  lastContact: string | Date
+  isDeleted: boolean
 }
 
 interface AllContactsViewProps {
@@ -40,102 +39,83 @@ interface AllContactsViewProps {
 }
 
 export function AllContactsView({ userRole }: AllContactsViewProps) {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedContacts, setSelectedContacts] = useState<number[]>([])
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
-  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([])
+  const [allContacts, setAllContacts] = useState<Contact[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data - in real app this would come from API
-  const [allContacts, setAllContacts] = useState<Contact[]>([
-    {
-      id: 1,
-      name: "John Anderson",
-      company: "Tech Solutions Inc",
-      role: "CTO",
-      phone: "+1 (555) 123-4567",
-      email: "john@techsolutions.com",
-      uploadedBy: "Admin User",
-      uploadedDate: "2024-01-10",
-      assignedTo: userRole === "admin" ? "Sarah Johnson" : null,
-      status: userRole === "admin" ? "assigned" : "unassigned",
-      lastContactDate: "2024-01-15",
-      contactHistory: [
-        {
-          id: 1,
-          date: "2024-01-15",
-          contactedBy: "Sarah Johnson",
-          notes: "Initial contact made, showed interest in our product",
-          outcome: "interested",
-          nextAction: "Send proposal",
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      company: "Marketing Pro",
-      role: "Marketing Director",
-      phone: "+1 (555) 234-5678",
-      email: "sarah@marketingpro.com",
-      uploadedBy: "Mike Davis",
-      uploadedDate: "2024-01-12",
-      assignedTo: null,
-      status: "unassigned",
-      contactHistory: [],
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      company: "StartupXYZ",
-      role: "Founder",
-      phone: "+1 (555) 345-6789",
-      email: "mike@startupxyz.com",
-      uploadedBy: "Admin User",
-      uploadedDate: "2024-01-13",
-      assignedTo: null,
-      status: "unassigned",
-      contactHistory: [],
-    },
-    {
-      id: 4,
-      name: "Emily Chen",
-      company: "Design Studio",
-      role: "Creative Director",
-      phone: "+1 (555) 456-7890",
-      email: "emily@designstudio.com",
-      uploadedBy: "John Smith",
-      uploadedDate: "2024-01-14",
-      assignedTo: null,
-      status: "unassigned",
-      contactHistory: [],
-    },
-    {
-      id: 5,
-      name: "David Brown",
-      company: "Finance Corp",
-      role: "CFO",
-      phone: "+1 (555) 567-8901",
-      email: "david@financecorp.com",
-      uploadedBy: "Sarah Johnson",
-      uploadedDate: "2024-01-15",
-      assignedTo: null,
-      status: "unassigned",
-      contactHistory: [],
-    },
-  ])
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Add debug log to verify endpoint
+        console.log("Fetching from endpoint:", endpoints.contact.getAllContacts)
+        
+        const response = await api.get(endpoints.contact.getAllContacts)
+        
+        // Debug log to check response
+        console.log("API Response:", response.data)
+        
+        if (!response.data?.allContacts) {
+          throw new Error("No contacts data found in response")
+        }
 
-  // Filter contacts based on user role
-  const displayContacts =
-    userRole === "admin" ? allContacts : allContacts.filter((contact) => contact.status === "unassigned")
+        // Transform data to match our interface
+        const transformedContacts = response.data.allContacts.map((contact: any) => ({
+          _id: contact._id,
+          name: contact.name,
+          company: contact.company,
+          position: contact.position,
+          contactInfo: {
+            email: contact.contactInfo?.email || 'No email',
+            phone: contact.contactInfo?.phone || 'No phone'
+          },
+          uploadedBy: contact.uploadedBy?._id 
+            ? { _id: contact.uploadedBy._id, name: contact.uploadedBy.name || 'System' }
+            : 'System',
+          uploadDate: contact.uploadDate,
+          assignedTo: contact.assignedTo || "Unassigned",
+          status: contact.status || "UNASSIGNED",
+          lastContact: contact.lastContact || new Date(0),
+          isDeleted: contact.isDeleted || false
+        }))
+
+        setAllContacts(transformedContacts)
+      } catch (error) {
+        console.error("Failed to fetch contacts:", error)
+        setError("Failed to load contacts. Please try again.")
+        
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 401) {
+            toast.error("Session expired. Please login again.")
+            router.push("/auth/login")
+          } else if (error.response?.status === 403) {
+            toast.error("You don't have permission to view contacts")
+          }
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchContacts()
+  }, [router])
+
+  const displayContacts = allContacts.filter(contact => !contact.isDeleted)
+  const unassignedContacts = displayContacts.filter(contact => contact.status === "UNASSIGNED")
 
   const filteredContacts = displayContacts.filter(
     (contact) =>
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.email.toLowerCase().includes(searchTerm.toLowerCase()),
+      contact.contactInfo.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleSelectContact = (contactId: number, checked: boolean) => {
+  const handleSelectContact = (contactId: string, checked: boolean) => {
     if (checked) {
       if (selectedContacts.length < 100) {
         setSelectedContacts([...selectedContacts, contactId])
@@ -147,41 +127,86 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const unassignedIds = filteredContacts
-        .filter((contact) => contact.status === "unassigned")
+      const unassignedIds = unassignedContacts
         .slice(0, 100)
-        .map((contact) => contact.id)
+        .map((contact) => contact._id)
       setSelectedContacts(unassignedIds)
     } else {
       setSelectedContacts([])
     }
   }
 
-  const handleAssignToMe = () => {
-    const currentUser = localStorage.getItem("userEmail") || "Current User"
+  const handleAssignToMe = async () => {
+    try {
+      const userId = localStorage.getItem("user_id") || localStorage.getItem("userId")
+      const userName = localStorage.getItem("userName") || "Current User"
+      
+      if (!userId) {
+        throw new Error("User ID not found. Please login again.")
+      }
 
-    setAllContacts((prevContacts) =>
-      prevContacts.map((contact) =>
-        selectedContacts.includes(contact.id)
-          ? { ...contact, assignedTo: currentUser, status: "assigned" as const }
-          : contact,
-      ),
-    )
+      const response = await api.post(endpoints.contact.assignContacts, {
+        contactIds: selectedContacts,
+        assignedTo: userId
+      })
 
-    setSelectedContacts([])
-    alert(`${selectedContacts.length} contacts assigned to you successfully!`)
-  }
-
-  const handleViewDetails = (contact: Contact) => {
-    setSelectedContact(contact)
-    setShowDetailsModal(true)
+      if (response.data?.success) {
+        setAllContacts(prevContacts =>
+          prevContacts.map(contact =>
+            selectedContacts.includes(contact._id)
+              ? { 
+                  ...contact, 
+                  assignedTo: userName, 
+                  status: "ASSIGNED" 
+                }
+              : contact
+          )
+        )
+        setSelectedContacts([])
+        toast.success(`${selectedContacts.length} contacts assigned successfully!`)
+      } else {
+        throw new Error(response.data?.message || "Failed to assign contacts")
+      }
+    } catch (error) {
+      console.error("Assignment error:", error)
+      toast.error("Failed to assign contacts. Please try again.")
+    }
   }
 
   const getStatusBadge = (contact: Contact) => {
-    if (contact.status === "unassigned") {
-      return <Badge className="bg-blue-100 text-blue-800">Unassigned</Badge>
-    }
-    return <Badge className="bg-green-100 text-green-800">Assigned</Badge>
+    return contact.status === "UNASSIGNED" 
+      ? <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
+      : <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+  }
+
+  const formatDate = (date: string | Date) => {
+    if (!date) return "Never"
+    const dateObj = new Date(date)
+    return isNaN(dateObj.getTime()) 
+      ? "Never" 
+      : dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+  }
+
+  const getUploaderName = (contact: Contact) => {
+    return typeof contact.uploadedBy === 'object' 
+      ? contact.uploadedBy.name || 'System' 
+      : 'System'
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <p className="text-gray-500">Loading contacts...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 flex justify-center items-center h-64">
+        <p className="text-red-500">{error}</p>
+      </div>
+    )
   }
 
   return (
@@ -219,7 +244,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
         </div>
       </div>
 
-      {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex space-x-4">
@@ -240,28 +264,26 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
         </CardContent>
       </Card>
 
-      {/* Selection Summary */}
       {userRole !== "admin" && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex justify-between items-center">
               <p className="text-sm text-gray-600">{selectedContacts.length} of 100 contacts selected</p>
               <div className="text-sm text-gray-500">
-                {filteredContacts.filter((c) => c.status === "unassigned").length} unassigned contacts available
+                {unassignedContacts.length} unassigned contacts available
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Contacts Table */}
       <Card>
         <CardHeader>
           <CardTitle>
             Contacts ({filteredContacts.length})
             {userRole === "admin" && (
               <span className="ml-2 text-sm font-normal text-gray-500">
-                ({allContacts.filter((c) => c.status === "unassigned").length} unassigned)
+                ({unassignedContacts.length} unassigned)
               </span>
             )}
           </CardTitle>
@@ -272,7 +294,10 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               <TableRow>
                 {userRole !== "admin" && (
                   <TableHead className="w-[50px]">
-                    <Checkbox checked={selectedContacts.length > 0} onCheckedChange={handleSelectAll} />
+                    <Checkbox 
+                      checked={selectedContacts.length > 0 && selectedContacts.length === unassignedContacts.slice(0, 100).length}
+                      onCheckedChange={handleSelectAll}
+                    />
                   </TableHead>
                 )}
                 <TableHead>Name</TableHead>
@@ -287,79 +312,71 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredContacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  {userRole !== "admin" && (
+              {filteredContacts.length > 0 ? (
+                filteredContacts.map((contact) => (
+                  <TableRow key={contact._id}>
+                    {userRole !== "admin" && (
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedContacts.includes(contact._id)}
+                          onCheckedChange={(checked) => handleSelectContact(contact._id, checked as boolean)}
+                          disabled={
+                            contact.status === "ASSIGNED" ||
+                            (selectedContacts.length >= 100 && !selectedContacts.includes(contact._id))
+                          }
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
-                      <Checkbox
-                        checked={selectedContacts.includes(contact.id)}
-                        onCheckedChange={(checked) => handleSelectContact(contact.id, checked as boolean)}
-                        disabled={
-                          contact.status === "assigned" ||
-                          (selectedContacts.length >= 100 && !selectedContacts.includes(contact.id))
-                        }
-                      />
+                      <div>
+                        <p className="font-medium">{contact.name}</p>
+                        <p className="text-sm text-muted-foreground">{contact.position}</p>
+                      </div>
                     </TableCell>
-                  )}
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{contact.name}</p>
-                      <p className="text-sm text-muted-foreground">{contact.role}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{contact.company}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-sm">{contact.phone}</div>
-                      <div className="text-sm text-muted-foreground">{contact.email}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{contact.uploadedBy}</TableCell>
-                  <TableCell>{contact.uploadedDate}</TableCell>
-                  {userRole === "admin" && (
+                    <TableCell>{contact.company}</TableCell>
                     <TableCell>
-                      {contact.assignedTo ? (
-                        <span className="text-sm">{contact.assignedTo}</span>
+                      <div className="space-y-1">
+                        <div className="text-sm">{contact.contactInfo.phone}</div>
+                        <div className="text-sm text-muted-foreground">{contact.contactInfo.email}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getUploaderName(contact)}</TableCell>
+                    <TableCell>{formatDate(contact.uploadDate)}</TableCell>
+                    {userRole === "admin" && (
+                      <TableCell>
+                        {contact.assignedTo !== "Unassigned" ? (
+                          <span className="text-sm">{contact.assignedTo}</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Unassigned</span>
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell>{getStatusBadge(contact)}</TableCell>
+                    <TableCell>
+                      {contact.lastContact && new Date(contact.lastContact).getTime() > 0 ? (
+                        <span className="text-sm">{formatDate(contact.lastContact)}</span>
                       ) : (
-                        <span className="text-sm text-muted-foreground">Unassigned</span>
+                        <span className="text-sm text-muted-foreground">Never</span>
                       )}
                     </TableCell>
-                  )}
-                  <TableCell>{getStatusBadge(contact)}</TableCell>
-                  <TableCell>
-                    {contact.lastContactDate ? (
-                      <span className="text-sm">{contact.lastContactDate}</span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Never</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => handleViewDetails(contact)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <TableCell>
+                      <Button variant="ghost" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={userRole === "admin" ? 9 : 10} className="h-24 text-center">
+                    No contacts found
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
-
-      {/* Contact Details Modal */}
-      {selectedContact && (
-        <ContactDetailsModal
-          contact={selectedContact}
-          userRole={userRole}
-          isOpen={showDetailsModal}
-          onClose={() => setShowDetailsModal(false)}
-          onUpdateContact={(updatedContact) => {
-            setAllContacts((prevContacts) =>
-              prevContacts.map((contact) => (contact.id === updatedContact.id ? updatedContact : contact)),
-            )
-            setSelectedContact(updatedContact)
-          }}
-        />
-      )}
     </div>
   )
 }

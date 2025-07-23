@@ -25,11 +25,6 @@ export function ContactPopup() {
     phone: "",
     status: "UNASSIGNED",
   })
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -40,105 +35,119 @@ export function ContactPopup() {
     setFormData(prev => ({ ...prev, status: value }))
   }
 
-// In your ContactPopup component
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    if (typeof window === "undefined") {
-      throw new Error("Window object not available");
-    }
-
-    // Validate all required fields are filled
-    const requiredFields = ['name', 'company', 'position', 'email', 'phone'];
-    for (const field of requiredFields) {
-      if (!formData[field as keyof typeof formData]) {
-        throw new Error(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`);
-      }
-    }
-
-    // Get session data
-    const userId = localStorage.getItem("user_id") || localStorage.getItem("userId");
-    const authToken = localStorage.getItem("authToken") || localStorage.getItem("token");
-    
-    if (!userId || userId === "undefined" || userId === "null") {
-      throw new Error("Please login again");
-    }
-
-    if (!authToken) {
-      throw new Error("Authentication token missing");
-    }
-
-    // Prepare payload to match backend schema exactly
-    const currentDate = new Date();
-    const payload = {
-      name: formData.name.trim(),
-      company: formData.company.trim(),
-      position: formData.position.trim(),
-      contactInfo: {  // Changed to match backend expectation
-        email: formData.email.trim(),
-        phone: formData.phone.trim()
-      },
-      uploadedBy: userId,
-      uploadDate: currentDate.toISOString(), // Fixed field name (removed extra 'D')
-      status: formData.status,
-      assignedTo: "Unassigned",
-      lastContact: new Date(0).toISOString()
-    };
-
-    console.log("Final payload being sent:", payload);
-
-    const response = await api.post(endpoints.contact.addContact, payload);
-
-    if (!response.data?.success) {
-      throw new Error(response.data?.message || "Failed to add contact");
-    }
-
-    toast.success("Contact added successfully");
-    setOpen(false);
-    setFormData({
-      name: "",
-      company: "",
-      position: "",
-      email: "",
-      phone: "",
-      status: "UNASSIGNED",
-    });
-
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error("Submission error:", error.message);
-      
-      let errorMessage = error.message;
-      
-      if (axios.isAxiosError(error)) {
-        console.error("Backend response:", error.response?.data);
-        
-        if (error.response?.status === 500) {
-          errorMessage = "Failed to add contact. Please check all fields and try again.";
+    try {
+      // Enhanced validation
+      const requiredFields = ['name', 'company', 'position', 'email', 'phone'];
+      for (const field of requiredFields) {
+        const value = formData[field as keyof typeof formData]?.trim();
+        if (!value) {
+          throw new Error(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`);
         }
         
-        if (error.response?.status === 401) {
-          errorMessage = "Session expired. Please login again";
-          // Clear auth data
+        // Additional email validation
+        if (field === 'email') {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value)) {
+            throw new Error("Please enter a valid email address");
+          }
+        }
+      }
+
+      // Get user session data
+      const userId = localStorage.getItem("user_id") || localStorage.getItem("userId");
+      const authToken = localStorage.getItem("authToken") || localStorage.getItem("token");
+      
+      if (!userId || userId === "undefined" || userId === "null") {
+        throw new Error("Please login again");
+      }
+
+      if (!authToken) {
+        throw new Error("Authentication token missing");
+      }
+
+      // Prepare payload with additional checks
+      const payload = {
+        name: formData.name.trim(),
+        company: formData.company.trim(),
+        position: formData.position.trim(),
+        contactInfo: {
+          email: formData.email.trim(),
+          phone: formData.phone.trim()
+        },
+        uploadedBy: userId,
+        uploadDate: new Date().toISOString(),
+        status: formData.status,
+        assignedTo: "Unassigned",
+        lastContact: new Date(0).toISOString()
+      };
+
+      // Check for duplicate contact before submitting
+      try {
+        const checkResponse = await api.get(endpoints.contact.getAllContacts, {
+          params: {
+            email: payload.contactInfo.email
+          }
+        });
+
+        if (checkResponse.data?.some((contact: any) => 
+          contact.contactInfo?.email === payload.contactInfo.email
+        )) {
+          throw new Error("A contact with this email already exists");
+        }
+      } catch (checkError) {
+        console.warn("Duplicate check failed, proceeding anyway", checkError);
+      }
+
+      // Submit the contact API
+      const response = await api.post(endpoints.contact.addContact, payload);
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Failed to add contact");
+      }
+
+      toast.success("Contact added successfully");
+      
+      // Reset form completely
+      setFormData({
+        name: "",
+        company: "",
+        position: "",
+        email: "",
+        phone: "",
+        status: "UNASSIGNED",
+      });
+      setOpen(false);
+
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 500) {
+          if (error.response?.data?.message?.includes('duplicate key')) {
+            toast.error("A contact with this email already exists");
+          } else {
+            toast.error("Server error. Please try again later.");
+          }
+        } else if (error.response?.status === 401) {
+          toast.error("Session expired. Please login again");
           ['authToken', 'token', 'userId', 'user_id'].forEach(key => 
             localStorage.removeItem(key)
           );
           router.push("/auth/login");
+        } else {
+          toast.error(error.response?.data?.message || "Failed to add contact");
         }
+      } else if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("An unknown error occurred");
       }
-      
-      toast.error(errorMessage);
-    } else {
-      console.error("Unknown error:", error);
-      toast.error("Failed to add contact");
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
