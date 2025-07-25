@@ -13,6 +13,7 @@ import endpoints from "@/lib/endpoints"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import axios from "axios"
+import { ContactPopup } from "@/components/ui/contactpopup"
 
 interface Contact {
   _id: string
@@ -237,10 +238,12 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               Assign {selectedContacts.length} to Me
             </Button>
           )}
+          <ContactPopup>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Add Contact
           </Button>
+          </ContactPopup>
         </div>
       </div>
 
