@@ -20,14 +20,9 @@ interface Contact {
   name: string
   company: string
   position: string
-  contactInfo: {
-    email: string
-    phone: string
-  }
-  uploadedBy: {
-    _id: string
-    name?: string
-  } | string // Can be ObjectId string or populated user object
+  email: string
+  phone: string
+  uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
   status: "ASSIGNED" | "UNASSIGNED"
@@ -53,16 +48,9 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
         setLoading(true)
         setError(null)
         
-        // Add debug log to verify endpoint
-        console.log("Fetching from endpoint:", endpoints.contact.getAllContacts)
-        
         const response = await api.get(endpoints.contact.getAllContacts)
-        
-        // Debug log to check response
-        console.log("API Response:", response.data)
-        
         if (!response.data?.allContacts) {
-          throw new Error("No contacts data found in response")
+          console.log("No contacts data found in response")
         }
 
         // Transform data to match our interface
@@ -71,13 +59,9 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
           name: contact.name,
           company: contact.company,
           position: contact.position,
-          contactInfo: {
-            email: contact.contactInfo?.email || 'No email',
-            phone: contact.contactInfo?.phone || 'No phone'
-          },
-          uploadedBy: contact.uploadedBy?._id 
-            ? { _id: contact.uploadedBy._id, name: contact.uploadedBy.name || 'System' }
-            : 'System',
+          email: contact.email || 'No email',
+          phone: contact.phone || 'No phone',
+          uploadedBy: contact.uploadedBy?.toString() || 'System',
           uploadDate: contact.uploadDate,
           assignedTo: contact.assignedTo || "Unassigned",
           status: contact.status || "UNASSIGNED",
@@ -113,7 +97,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
     (contact) =>
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.contactInfo.email.toLowerCase().includes(searchTerm.toLowerCase())
+      contact.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const handleSelectContact = (contactId: string, checked: boolean) => {
@@ -189,9 +173,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   }
 
   const getUploaderName = (contact: Contact) => {
-    return typeof contact.uploadedBy === 'object' 
-      ? contact.uploadedBy.name || 'System' 
-      : 'System'
+    return contact.uploadedBy || 'System'
   }
 
   if (loading) {
@@ -339,8 +321,8 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                     <TableCell>{contact.company}</TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="text-sm">{contact.contactInfo.phone}</div>
-                        <div className="text-sm text-muted-foreground">{contact.contactInfo.email}</div>
+                        <div className="text-sm">{contact.phone}</div>
+                        <div className="text-sm text-muted-foreground">{contact.email}</div>
                       </div>
                     </TableCell>
                     <TableCell>{getUploaderName(contact)}</TableCell>

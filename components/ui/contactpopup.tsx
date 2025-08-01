@@ -133,10 +133,8 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
         name: formData.name.trim(),
         company: formData.company.trim(),
         position: formData.position.trim(),
-        contactInfo: {
-          email: formData.email.trim(),
-          phone: formData.phone.trim()
-        },
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
         uploadedBy: userId,
         uploadDate: new Date().toISOString(),
         status: formData.status,
@@ -147,12 +145,12 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
       try {
         const checkResponse = await api.get(endpoints.contact.getAllContacts, {
           params: {
-            email: payload.contactInfo.email
+            email: payload.email
           }
         });
 
         if (checkResponse.data?.some((contact: any) => 
-          contact.contactInfo?.email === payload.contactInfo.email
+          contact.contactInfo?.email === payload.email
         )) {
           throw new Error("A contact with this email already exists");
         }
