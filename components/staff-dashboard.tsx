@@ -77,10 +77,14 @@ export function StaffDashboard() {
               <Phone className="h-6 w-6 mb-2" />
               Log Call
             </Button>
-            <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-              <Plus className="h-6 w-6 mb-2" />
-              Add Contact
-            </Button>
+            
+            <ContactPopup>
+              <Button variant="outline" className="h-20 flex flex-col bg-transparent">
+                <Plus className="h-6 w-6 mb-2" />
+                Add Contact
+              </Button>
+            </ContactPopup>
+            
             <Button variant="outline" className="h-20 flex flex-col bg-transparent">
               <TrendingUp className="h-6 w-6 mb-2" />
               Request Leads

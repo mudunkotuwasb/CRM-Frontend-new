@@ -1,14 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState,useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ContactDetailsModal } from "@/components/contact-details-modal"
-import { QuickActionModal } from "@/components/quick-action-modal"
 import {
   Search,
   Plus,
@@ -22,20 +20,24 @@ import {
   Calendar,
   Zap,
 } from "lucide-react"
+import api from "@/lib/api";
+import endpoints from "@/lib/endpoints";
+import { toast } from "sonner";
+import { ContactPopup } from "@/components/ui/contactpopup"
 
 interface Contact {
-  id: number
+  _id: string
   name: string
   company: string
-  role: string
+  position: string
   phone: string
   email: string
   status: string
-  lastContact: string
+  lastContact: string | Date
   assignedTo: string
   uploadedBy: string
-  uploadedDate: string
-  contactHistory: ContactHistory[]
+  uploadDate: string | Date
+  contactHistory?: ContactHistory[];
 }
 
 interface ContactHistory {
@@ -57,60 +59,74 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showQuickAction, setShowQuickAction] = useState(false)
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const contacts: Contact[] = [
-    {
-      id: 1,
-      name: "John Anderson",
-      company: "Tech Solutions Inc",
-      role: "CTO",
-      phone: "+1 (555) 123-4567",
-      email: "john@techsolutions.com",
-      status: "Hot Lead",
-      lastContact: "2024-01-15",
-      assignedTo: "Current User",
-      uploadedBy: "Admin User",
-      uploadedDate: "2024-01-10",
-      contactHistory: [
-        {
-          id: 1,
-          date: "2024-01-15",
-          contactedBy: "Current User",
-          notes: "Initial contact made, showed interest in our product",
-          outcome: "interested",
-          nextAction: "Send proposal",
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: "Sarah Williams",
-      company: "Marketing Pro",
-      role: "Marketing Director",
-      phone: "+1 (555) 234-5678",
-      email: "sarah@marketingpro.com",
-      status: "Follow-up",
-      lastContact: "2024-01-14",
-      assignedTo: "Current User",
-      uploadedBy: "Mike Davis",
-      uploadedDate: "2024-01-12",
-      contactHistory: [],
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      company: "StartupXYZ",
-      role: "Founder",
-      phone: "+1 (555) 345-6789",
-      email: "mike@startupxyz.com",
-      status: "New",
-      lastContact: "2024-01-13",
-      assignedTo: "Current User",
-      uploadedBy: "Admin User",
-      uploadedDate: "2024-01-13",
-      contactHistory: [],
-    },
-  ]
+  useEffect(() => {
+  const getContactsByEmail = async () => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const token = localStorage.getItem("token");         //check token
+    if (!token) {
+      console.log("Authentication error - please login again");
+      throw new Error("Authentication token missing");
+    }
+    
+    const userEmail = localStorage.getItem("userEmail"); //check email
+    if (!userEmail) {
+      console.log("User Email is missing - please login again");
+      throw new Error("User Email missing");
+    }
+
+    const response = await api.post(endpoints.contact.getContactsByEmail, { email: userEmail }); //endpoint call
+
+    if (!response.data) {
+      console.log("No data received from CRM backend");
+    }
+    
+    // Handle no contacts are found in your email
+    if (!response.data.success || !response.data.contacts) {
+      toast.info("No contacts found for your email");
+      setContacts([]);
+      return;
+    }
+
+    const contactsData = response.data.contacts;
+
+    // Transform each contact in the array
+    const transformedContacts = contactsData.map((contact: any) => ({
+      _id: contact._id,
+      name: contact.name || "no name",
+      company: contact.company || "no Company",
+      position: contact.position || "",
+      email: contact.email || userEmail,
+      phone: contact.phone || "",
+      status: contact.status === "ASSIGNED" ? "Assigned" : "Unassigned",
+      lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
+      assignedTo: contact.assignedTo || "Unassigned",
+      uploadedBy: contact.uploadedBy || "System",
+      uploadDate: contact.uploadDate ? new Date(contact.uploadDate) : new Date(),
+      contactHistory: contact.contactHistory || [],
+    }));
+
+    // Set the transformed all contacts in array
+    setContacts(transformedContacts);
+
+  } catch (error: any) {
+    console.error("Fetch error:", error);
+    const errorMessage = error.response?.data?.message || error.message || "Failed to load contacts";
+    setError(errorMessage);
+    toast.error(errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  getContactsByEmail();
+}, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -137,6 +153,18 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     setShowDetailsModal(true)
   }
 
+  const formatDate = (date: string | Date) => {
+    if (!date) return "Never";
+    const dateObj = new Date(date);
+    return isNaN(dateObj.getTime())
+      ? "Never"
+      : dateObj.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -152,10 +180,12 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
               Export
             </Button>
           )}
+          <ContactPopup>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Add Contact
           </Button>
+          </ContactPopup>
         </div>
       </div>
 
@@ -223,11 +253,13 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
             </TableHeader>
             <TableBody>
               {contacts.map((contact) => (
-                <TableRow key={contact.id}>
+                <TableRow key={contact._id}>
                   <TableCell>
                     <div>
                       <p className="font-medium">{contact.name}</p>
-                      <p className="text-sm text-muted-foreground">{contact.role}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {contact.position}
+                      </p>
                     </div>
                   </TableCell>
                   <TableCell>{contact.company}</TableCell>
@@ -244,9 +276,11 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(contact.status)}>{contact.status}</Badge>
+                    <Badge className={getStatusColor(contact.status)}>
+                      {contact.status}
+                    </Badge>
                   </TableCell>
-                  <TableCell>{contact.lastContact}</TableCell>
+                  <TableCell>{formatDate(contact.lastContact)}</TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
                       <Button
@@ -283,7 +317,11 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewDetails(contact)}>View Details</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleViewDetails(contact)}
+                        >
+                          View Details
+                        </DropdownMenuItem>
                         <DropdownMenuItem>Edit Contact</DropdownMenuItem>
                         <DropdownMenuItem>Add Note</DropdownMenuItem>
                         <DropdownMenuItem>Mark as Hot Lead</DropdownMenuItem>
@@ -296,33 +334,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Contact Details Modal */}
-      {selectedContact && (
-        <ContactDetailsModal
-          contact={selectedContact}
-          userRole={userRole}
-          isOpen={showDetailsModal}
-          onClose={() => setShowDetailsModal(false)}
-          onUpdateContact={(updatedContact) => {
-            // Update contact in the list
-            setSelectedContact(updatedContact)
-          }}
-        />
-      )}
-
-      {/* Quick Action Modal */}
-      {selectedContact && (
-        <QuickActionModal
-          contact={selectedContact}
-          isOpen={showQuickAction}
-          onClose={() => setShowQuickAction(false)}
-          onUpdateContact={(updatedContact) => {
-            // Update contact in the list
-            setSelectedContact(updatedContact)
-          }}
-        />
-      )}
     </div>
   )
 }
