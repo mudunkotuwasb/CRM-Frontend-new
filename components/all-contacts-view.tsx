@@ -34,6 +34,12 @@ interface AllContactsViewProps {
   userRole: string
 }
 
+interface UserData {
+  _id: string;
+  username: string;
+  email: string;
+}
+
 export function AllContactsView({ userRole }: AllContactsViewProps) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
@@ -41,6 +47,55 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [allContacts, setAllContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userDataMap, setUserDataMap] = useState<Record<string, string>>({});   //state to store user data
+  
+  
+
+
+
+//Add useEffect to fetch user data when contacts load
+useEffect(() => {
+  const fetchUserNames = async () => {
+    try {
+      const token = localStorage.getItem("token");  // Get current user token from localStorage
+      
+      if (!token){
+        throw new Error("user token missing please logi in again")
+      }
+      // Get unique user IDs from contacts
+      const uniqueUserIds = Array.from(
+        new Set(allContacts.map(contact => contact.uploadedBy))
+      ).filter(id => id !== 'System');
+
+      // Create a map to store username by ID
+      const usernameMap: Record<string, string> = {};
+
+      // current user's data which includes their username
+      const currentUserResponse = await api.post(endpoints.auth.login,);
+
+      //get current users data
+      if (currentUserResponse.data?.username) {
+        uniqueUserIds.forEach(id => {
+          usernameMap[id] = currentUserResponse.data.username;
+        });
+      }
+      setUserDataMap(usernameMap);
+      
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
+
+  if (allContacts.length > 0) {
+    fetchUserNames();
+  }
+}, [allContacts]);
+
+
+
+
+
+
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -172,9 +227,17 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       : dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
-  const getUploaderName = (contact: Contact) => {
-    return contact.uploadedBy || 'System'
+//using localStorage
+const getUploaderName = (contact: Contact) => {
+  if (contact.uploadedBy === 'System') return 'System';
+    const currentUserId = localStorage.getItem("user_id")// Get current user ID from localStorage
+  
+  // If this contact was uploaded by the current user
+  if (contact.uploadedBy === currentUserId) {
+    return localStorage.getItem("username");
   }
+  return "Not your coontact";
+};
 
   if (loading) {
     return (
