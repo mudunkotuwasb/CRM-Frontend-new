@@ -62,71 +62,74 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openEditPopup, setOpenEditPopup] = useState(false);
+  const [refreshContacts, setRefreshContacts] = useState(false);
 
   useEffect(() => {
-  const getContactsByEmail = async () => {
-  setLoading(true);
-  setError(null);
+    const getContactsByEmail = async () => {
+      setLoading(true);
+      setError(null);
 
-  try {
-    const token = localStorage.getItem("token");         //check token
-    if (!token) {
-      console.log("Authentication error - please login again");
-      throw new Error("Authentication token missing");
-    }
-    
-    const userEmail = localStorage.getItem("userEmail"); //check email
-    if (!userEmail) {
-      console.log("User Email is missing - please login again");
-      throw new Error("User Email missing");
-    }
+      try {
+        const token = localStorage.getItem("token"); //check token
+        if (!token) {
+          console.log("Authentication error - please login again");
+          throw new Error("Authentication token missing");
+        }
 
-    const response = await api.post(endpoints.contact.getContactsByEmail, { email: userEmail }); //endpoint call
+        const userEmail = localStorage.getItem("userEmail"); //check email
+        if (!userEmail) {
+          console.log("User Email is missing - please login again");
+          throw new Error("User Email missing");
+        }
 
-    if (!response.data) {
-      console.log("No data received from CRM backend");
-    }
-    
-    // Handle no contacts are found in your email
+        const response = await api.post(endpoints.contact.getContactsByEmail, {
+          email: userEmail,
+        }); //endpoint call
+
+        if (!response.data) {
+          console.log("No data received from CRM backend");
+        }
+
+        // Handle no contacts are found in your email
     if (!response.data.success || !response.data.contacts) {
       toast.info("No contacts found for your email");
       setContacts([]);
       return;
     }
 
-    const contactsData = response.data.contacts;
+        const contactsData = response.data.contacts;
 
-    // Transform each contact in the array
-    const transformedContacts = contactsData.map((contact: any) => ({
-      _id: contact._id,
-      name: contact.name || "no name",
-      company: contact.company || "no Company",
-      position: contact.position || "",
-      email: contact.email || userEmail,
-      phone: contact.phone || "",
-      status: contact.status === "ASSIGNED" ? "Assigned" : "Unassigned",
-      lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
-      assignedTo: contact.assignedTo || "Unassigned",
-      uploadedBy: contact.uploadedBy || "System",
-      uploadDate: contact.uploadDate ? new Date(contact.uploadDate) : new Date(),
-      contactHistory: contact.contactHistory || [],
-    }));
+        // Transform each contact in the array
+        const transformedContacts = contactsData.map((contact: any) => ({
+          _id: contact._id,
+          name: contact.name || "no name",
+          company: contact.company || "no Company",
+          position: contact.position || "",
+          email: contact.email || userEmail,
+          phone: contact.phone || "",
+          status: contact.status === "ASSIGNED" ? "Assigned" : "Unassigned",
+          lastContact: contact.lastContact? new Date(contact.lastContact): new Date(0),
+          assignedTo: contact.assignedTo || "Unassigned",
+          uploadedBy: contact.uploadedBy || "System",
+          uploadDate: contact.uploadDate? new Date(contact.uploadDate): new Date(),
+          contactHistory: contact.contactHistory || [],
+        }));
 
-    // Set the transformed all contacts in array
-    setContacts(transformedContacts);
+        // Set the transformed all contacts in array
+        setContacts(transformedContacts);
+      } catch (error: any) {
+        console.error("Fetch error:", error);
+        const errorMessage =error.response?.data?.message ||error.message ||"Failed to load contacts";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  } catch (error: any) {
-    console.error("Fetch error:", error);
-    const errorMessage = error.response?.data?.message || error.message || "Failed to load contacts";
-    setError(errorMessage);
-    toast.error(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  getContactsByEmail();
-}, []);
+    getContactsByEmail();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -181,10 +184,10 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
             </Button>
           )}
           <ContactPopup>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Contact
-          </Button>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Contact
+            </Button>
           </ContactPopup>
         </div>
       </div>
@@ -322,7 +325,9 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                         >
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Edit Contact</DropdownMenuItem>
+                        <DropdownMenuItem  onClick={() => { setSelectedContact(contact);setOpenEditPopup(true);}}>
+                          Edit Contact
+                        </DropdownMenuItem>
                         <DropdownMenuItem>Add Note</DropdownMenuItem>
                         <DropdownMenuItem>Mark as Hot Lead</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -332,6 +337,20 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
               ))}
             </TableBody>
           </Table>
+          {selectedContact && (
+            <ContactPopup
+              open={openEditPopup}
+              onOpenChange={(open) => {
+                setOpenEditPopup(open);
+                if (!open) {
+                  setRefreshContacts((prev) => !prev); // Refresh contacts when popup closes
+                }
+              }}
+              contact={selectedContact}
+            >
+              <Button className="hidden">Edit Contact Trigger</Button>
+            </ContactPopup>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -10,6 +10,7 @@ const endpoints = {
      assignContacts: `/contact-manager/assignContacts`,
      getContactDetails: `/contact-manager/getContact`,
      getContactsByEmail: `/contact-manager/getContactByEmail`,
+     updateContact: (id: string) => `/contact-manager/updateContact/${id}`,
     
   }
 } as const;
