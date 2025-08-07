@@ -64,6 +64,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [error, setError] = useState<string | null>(null);
   const [openEditPopup, setOpenEditPopup] = useState(false);
   const [refreshContacts, setRefreshContacts] = useState(false);
+  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
 
   useEffect(() => {
     const getContactsByEmail = async () => {
@@ -95,6 +96,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     if (!response.data.success || !response.data.contacts) {
       toast.info("No contacts found for your email");
       setContacts([]);
+      setFilteredContacts([]);
       return;
     }
 
@@ -118,6 +120,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
         // Set the transformed all contacts in array
         setContacts(transformedContacts);
+        setFilteredContacts(transformedContacts);
       } catch (error: any) {
         console.error("Fetch error:", error);
         const errorMessage =error.response?.data?.message ||error.message ||"Failed to load contacts";
@@ -167,6 +170,23 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           day: "numeric",
         });
   };
+
+
+
+    // Add: Filter contacts based on search term
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredContacts(contacts);
+    } else {
+      const filtered = contacts.filter(contact =>
+        contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredContacts(filtered);
+    }
+  }, [searchTerm, contacts]);
+
+
+
 
   return (
     <div className="p-6 space-y-6">
@@ -239,7 +259,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       {/* Contacts Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Contacts ({contacts.length})</CardTitle>
+          <CardTitle>Contacts ({filteredContacts.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -255,7 +275,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contacts.map((contact) => (
+              {filteredContacts.map((contact) => (
                 <TableRow key={contact._id}>
                   <TableCell>
                     <div>
