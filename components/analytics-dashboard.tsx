@@ -46,12 +46,12 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
       setError(null)
 
       // Get current user information
-      const currentUserId = localStorage.getItem("userId")
       const currentUserEmail = localStorage.getItem("userEmail")
+      const currentUsername = localStorage.getItem("username")
 
       // Get current date ranges
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      const now = new Date()
+      const today = new Date(now.setHours(0, 0, 0, 0))
       const startOfWeek = new Date(today)
       startOfWeek.setDate(today.getDate() - today.getDay() + 1)
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
@@ -74,28 +74,34 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
       const filteredContacts = isAdmin 
         ? contacts 
         : contacts.filter((contact: any) => {
-            const isUploadedByUser = contact.uploadedBy?.toString() === currentUserId
-            const isAssignedToUser = contact.assignedTo === currentUserEmail
-            return isUploadedByUser || isAssignedToUser
-          })
+           return contact.uploadedBy === currentUsername || contact.assignedTo === currentUserEmail;
+});
 
-      // Calculate monthly calls using uploadDate
-      const callsThisMonth = filteredContacts.filter((contact: any) => {
+      // Calculate counts
+      const callsToday = filteredContacts.filter((contact: any) => {
         const uploadDate = new Date(contact.uploadDate)
-        return uploadDate >= startOfMonth
+        return uploadDate >= today;
       }).length
 
-      // Calculate conversions
-      const conversions = filteredContacts.filter((contact: any) => 
-        contact.status === "Assigned"
-      ).length
+    const callsThisWeek = filteredContacts.filter((contact: any) => {
+      const uploadDate = new Date(contact.uploadDate);
+      return uploadDate >= startOfWeek;
+    }).length;
 
-      // Calculate conversion rate
-      const conversionRate = callsThisMonth > 0 
-        ? Math.round((conversions / callsThisMonth) * 100 * 10) / 10 
-        : 0
+    const callsThisMonth = filteredContacts.filter((contact: any) => {
+      const uploadDate = new Date(contact.uploadDate);
+      return uploadDate >= startOfMonth;
+    }).length;
 
-      // Calculate weekly calls by uploadDate
+    const conversions = filteredContacts.filter((contact: any) => 
+      contact.status === "ASSIGNED"
+    ).length;
+
+    const conversionRate = callsThisMonth > 0 
+      ? Math.round((conversions / callsThisMonth) * 100 * 10) / 10 
+      : 0;
+
+      // Calculate weekly calls
       const weeklyCalls = {
         monday: filteredContacts.filter((contact: any) => {
           const uploadDate = new Date(contact.uploadDate)
@@ -119,21 +125,11 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
         }).length
       }
 
-      // Calculate today calls
-      const callsToday = filteredContacts.filter((contact: any) => {
-        const uploadDate = new Date(contact.uploadDate)
-        return uploadDate >= today
-      }).length
-
-      // Calculate this week calls
-      const callsThisWeek = filteredContacts.filter((contact: any) => {
-        const uploadDate = new Date(contact.uploadDate)
-        return uploadDate >= startOfWeek
-      }).length
-
       // Calculate hot leads (contacts uploaded in last 3 days)
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
       const hotLeads = filteredContacts.filter((contact: any) => {
-        return new Date(contact.uploadDate).getTime() > Date.now() - 3 * 24 * 60 * 60 * 1000
+        const uploadDate = new Date(contact.uploadDate)
+        return uploadDate > threeDaysAgo
       }).length
 
       setPersonalStats({
@@ -148,12 +144,15 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
 
       // For admin, calculate team stats
       if (isAdmin) {
-        const teamCallsThisMonth = contacts.filter((contact: any) => 
-          new Date(contact.uploadDate) >= startOfMonth
-        ).length
+        const teamCallsThisMonth = contacts.filter((contact: any) => {
+        const uploadDate = new Date(contact.uploadDate);
+        return uploadDate >= startOfMonth;
+      }).length;
+      
         const teamConversions = contacts.filter((contact: any) => 
-          contact.status === "Assigned"
+          contact.status === "ASSIGNED"
         ).length
+
         const teamConversionRate = teamCallsThisMonth > 0
           ? Math.round((teamConversions / teamCallsThisMonth) * 100 * 10) / 10
           : 0
