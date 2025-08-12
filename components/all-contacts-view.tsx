@@ -53,48 +53,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
 
 
-//Add useEffect to fetch user data when contacts load
-useEffect(() => {
-  const fetchUserNames = async () => {
-    try {
-      const token = localStorage.getItem("token");  // Get current user token from localStorage
-      
-      if (!token){
-        throw new Error("user token missing please logi in again")
-      }
-      // Get unique user IDs from contacts
-      const uniqueUserIds = Array.from(
-        new Set(allContacts.map(contact => contact.uploadedBy))
-      ).filter(id => id !== 'System');
-
-      // Create a map to store username by ID
-      const usernameMap: Record<string, string> = {};
-
-      // current user's data which includes their username
-      const currentUserResponse = await api.post(endpoints.auth.login,);
-
-      //get current users data
-      if (currentUserResponse.data?.username) {
-        uniqueUserIds.forEach(id => {
-          usernameMap[id] = currentUserResponse.data.username;
-        });
-      }
-      setUserDataMap(usernameMap);
-      
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-    }
-  };
-
-  if (allContacts.length > 0) {
-    fetchUserNames();
-  }
-}, [allContacts]);
-
-
-
-
-
 
 
   useEffect(() => {
@@ -116,7 +74,7 @@ useEffect(() => {
           position: contact.position,
           email: contact.email || 'No email',
           phone: contact.phone || 'No phone',
-          uploadedBy: contact.uploadedBy?.toString() || 'System',
+          uploadedBy: contact.uploadedBy || 'System',
           uploadDate: contact.uploadDate,
           assignedTo: contact.assignedTo || "Unassigned",
           status: contact.status || "UNASSIGNED",
@@ -229,14 +187,7 @@ useEffect(() => {
 
 //using localStorage
 const getUploaderName = (contact: Contact) => {
-  if (contact.uploadedBy === 'System') return 'System';
-    const currentUserId = localStorage.getItem("user_id")// Get current user ID from localStorage
-  
-  // If this contact was uploaded by the current user
-  if (contact.uploadedBy === currentUserId) {
-    return localStorage.getItem("username");
-  }
-  return "Not your coontact";
+  return contact.uploadedBy; // Just return the username directly
 };
 
   if (loading) {
