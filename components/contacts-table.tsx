@@ -65,6 +65,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [openEditPopup, setOpenEditPopup] = useState(false);
   const [refreshContacts, setRefreshContacts] = useState(false);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
+  const [viewMode, setViewMode] = useState(false);
 
   useEffect(() => {
     const getContactsByEmail = async () => {
@@ -156,7 +157,8 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
   const handleViewDetails = (contact: Contact) => {
     setSelectedContact(contact)
-    setShowDetailsModal(true)
+    setViewMode(true); // Set view mode to true
+    setOpenEditPopup(true);
   }
 
   const formatDate = (date: string | Date) => {
@@ -364,9 +366,11 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                 setOpenEditPopup(open);
                 if (!open) {
                   setRefreshContacts((prev) => !prev); // Refresh contacts when popup closes
+                  setViewMode(false);
                 }
               }}
               contact={selectedContact}
+              viewMode={viewMode}
             >
               <Button className="hidden">Edit Contact Trigger</Button>
             </ContactPopup>

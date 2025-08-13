@@ -42,13 +42,24 @@ interface ContactPopupProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   contact?: Contact;
+  viewMode?: boolean; //Add viewMode interface propup
 }
+
+
+//Read-only field component
+const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
+  <div className="space-y-2">
+    <Label className="text-gray-500">{label}</Label>
+    <p className="font-medium">{value || "-"}</p>
+  </div>
+);
 
 export function ContactPopup({
   children,
   open,
   onOpenChange,
   contact,
+  viewMode = false,
 }: ContactPopupProps) {
   const router = useRouter()
   const [_open, setOpen] = useState(false)
@@ -264,9 +275,70 @@ export function ContactPopup({
       <DialogContent className="sm:max-w-[650px] rounded-lg">
         <DialogHeader className="border-b pb-4">
           <DialogTitle className="text-xl font-semibold text-gray-800">
-            {contact ? "Edit Contact" : "Add New Contact"}
+            {viewMode ? "Contact Details" : contact ? "Edit Contact" : "Add New Contact"}
           </DialogTitle>
         </DialogHeader>
+
+        {viewMode ? (
+          <div className="space-y-6 py-4 px-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <ReadOnlyField label="Name" value={contact?.name || ""} />
+                  <ReadOnlyField label="Company" value={contact?.company || ""} />
+                  <ReadOnlyField label="Position" value={contact?.position || ""} />
+                  <ReadOnlyField label="Status" value={contact?.status || ""} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <ReadOnlyField label="Email" value={contact?.email || ""} />
+                  <ReadOnlyField label="Phone" value={contact?.phone || ""} />
+                  <ReadOnlyField 
+                    label="Last Contact" 
+                    value={contact?.lastContact ? new Date(contact.lastContact).toLocaleDateString() : "Never"} 
+                  />
+                  <ReadOnlyField label="Assigned To" value={contact?.assignedTo || ""} />
+                </div>
+              </div>
+            </div>
+
+            {contact?.contactHistory && contact.contactHistory.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Contact History</h3>
+                <div className="border rounded-lg p-4">
+                  {contact.contactHistory.map((history) => (
+                    <div key={history.id} className="border-b py-3 last:border-b-0">
+                      <div className="flex justify-between">
+                        <p className="font-medium">
+                          {new Date(history.date).toLocaleDateString()}
+                        </p>
+                        <p className="text-gray-500">By: {history.contactedBy}</p>
+                      </div>
+                      <p className="mt-1">{history.notes}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Outcome: {history.outcome}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4 border-t">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange?.(false) || setOpen(false)}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : (
+
         <form onSubmit={handleSubmit} className="space-y-6 py-4 px-1">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -421,6 +493,7 @@ export function ContactPopup({
             </Button>
           </div>
         </form>
+         )}
       </DialogContent>
     </Dialog>
   )
