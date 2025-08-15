@@ -305,7 +305,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                       {contact.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(contact.lastContact)}</TableCell>
+                  <TableCell>{formatDate(contact.uploadDate)}</TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
                       <Button
