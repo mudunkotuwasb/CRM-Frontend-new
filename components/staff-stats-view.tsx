@@ -4,20 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Target, TrendingUp, Calendar, Clock, Award } from "lucide-react"
+import { useEffect, useState } from "react" // Add: Import useState and useEffect
+import api from "@/lib/api" // Add: Import API client
+import endpoints from "@/lib/endpoints" // Add: Import endpoints
+import { toast } from "sonner" // Add: Import toast for error handling
 
 export function StaffStatsView() {
+  //State for loading and error handling
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   // Current performance data
-  const currentStats = {
-    contactsToday: 156,
-    contactsThisWeek: 743,
-    contactsThisMonth: 2890,
-    callsToday: 12,
-    callsThisWeek: 47,
-    callsThisMonth: 189,
-    conversionsToday: 2,
-    conversionsThisWeek: 8,
-    conversionsThisMonth: 23,
-  }
+  const [currentStats,setCurrentStats] = useState( {
+    contactsToday: 0,
+    contactsThisWeek: 0,
+    contactsThisMonth: 0,
+    callsToday: 0,
+    callsThisWeek: 0,
+    callsThisMonth: 0,
+    conversionsToday: 0,
+    conversionsThisWeek: 0,
+    conversionsThisMonth: 0,
+  })
 
   // Goals
   const goals = {
@@ -25,6 +32,71 @@ export function StaffStatsView() {
     weekly: 1000,
     monthly: 4000,
   }
+
+
+  //Fetch contacts and calculate stats
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        //Get current date ranges
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const startOfWeek = new Date(today)
+        startOfWeek.setDate(today.getDate() - today.getDay())
+
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+        //Fetch contacts from API
+        const response = await api.get(endpoints.contact.getAllContacts, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        })
+
+        if (!response.data.allContacts) {
+          throw new Error("No contacts data received")
+        }
+
+        const contacts = response.data.allContacts
+
+        //Calculate counts based on uploadDate
+        const contactsToday = contacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate >= today
+        }).length
+
+        const contactsThisWeek = contacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate >= startOfWeek
+        }).length
+
+        const contactsThisMonth = contacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate >= startOfMonth
+        }).length
+
+        setCurrentStats(prev => ({
+          ...prev,
+          contactsToday,
+          contactsThisWeek,
+          contactsThisMonth,
+        }))
+      } catch (err: any) {
+        console.error("Error fetching contacts:", err)
+        setError(err.message || "Failed to load contact stats")
+        toast.error("Failed to load performance data")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchContacts()
+  }, [])
 
   // Calculate progress percentages
   const dailyProgress = (currentStats.contactsToday / goals.daily) * 100

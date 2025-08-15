@@ -4,6 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { BarChart3, TrendingUp, Phone, Target, Users } from "lucide-react"
+import { useEffect, useState, useCallback } from "react"
+import api from "@/lib/api"
+import endpoints from "@/lib/endpoints"
+import { toast } from "sonner"
 
 interface AnalyticsDashboardProps {
   userRole: string
@@ -11,26 +15,176 @@ interface AnalyticsDashboardProps {
 
 export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
   const isAdmin = userRole === "admin"
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [personalStats, setPersonalStats] = useState({
+    callsToday: 0,
+    callsThisWeek: 0,
+    callsThisMonth: 0,
+    conversionRate: 0,
+    hotLeads: 0,
+    conversions: 0,
+    weeklyCalls: {
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0
+    }
+  })
+  const [teamStats, setTeamStats] = useState({
+    totalCalls: 0,
+    totalConversions: 0,
+    averageConversionRate: 0,
+    topPerformer: "None",
+    teamSize: 0,
+  })
 
-  const personalStats = {
-    callsToday: 12,
-    callsThisWeek: 47,
-    callsThisMonth: 189,
-    conversionRate: 15.8,
-    hotLeads: 8,
-    conversions: 3,
-  }
+  const fetchContacts = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-  const teamStats = {
-    totalCalls: 456,
-    totalConversions: 23,
-    averageConversionRate: 12.4,
-    topPerformer: "Sarah Johnson",
-    teamSize: 8,
-  }
+      // Get current user information
+      const currentUserEmail = localStorage.getItem("userEmail")
+      const currentUsername = localStorage.getItem("username")
+
+      // Get current date ranges
+      const now = new Date()
+      const today = new Date(now.setHours(0, 0, 0, 0))
+      const startOfWeek = new Date(today)
+      startOfWeek.setDate(today.getDate() - today.getDay() + 1)
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+      // catch contacts from API
+      const response = await api.get(endpoints.contact.getAllContacts, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+
+      if (!response.data.allContacts) {
+        throw new Error("No contacts data received")
+      }
+
+      const contacts = response.data.allContacts
+
+      // Filter contacts for current user
+      const filteredContacts = isAdmin 
+        ? contacts 
+        : contacts.filter((contact: any) => {
+           return contact.uploadedBy === currentUsername || contact.assignedTo === currentUserEmail;
+});
+
+      // Calculate counts
+      const callsToday = filteredContacts.filter((contact: any) => {
+        const uploadDate = new Date(contact.uploadDate)
+        return uploadDate >= today;
+      }).length
+
+    const callsThisWeek = filteredContacts.filter((contact: any) => {
+      const uploadDate = new Date(contact.uploadDate);
+      return uploadDate >= startOfWeek;
+    }).length;
+
+    const callsThisMonth = filteredContacts.filter((contact: any) => {
+      const uploadDate = new Date(contact.uploadDate);
+      return uploadDate >= startOfMonth;
+    }).length;
+
+    const conversions = filteredContacts.filter((contact: any) => 
+      contact.status === "ASSIGNED"
+    ).length;
+
+    const conversionRate = callsThisMonth > 0 
+      ? Math.round((conversions / callsThisMonth) * 100 * 10) / 10 
+      : 0;
+
+      // Calculate weekly calls
+      const weeklyCalls = {
+        monday: filteredContacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate.getDay() === 1 && uploadDate >= startOfWeek
+        }).length,
+        tuesday: filteredContacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate.getDay() === 2 && uploadDate >= startOfWeek
+        }).length,
+        wednesday: filteredContacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate.getDay() === 3 && uploadDate >= startOfWeek
+        }).length,
+        thursday: filteredContacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate.getDay() === 4 && uploadDate >= startOfWeek
+        }).length,
+        friday: filteredContacts.filter((contact: any) => {
+          const uploadDate = new Date(contact.uploadDate)
+          return uploadDate.getDay() === 5 && uploadDate >= startOfWeek
+        }).length
+      }
+
+      // Calculate hot leads (contacts uploaded in last 3 days)
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const hotLeads = filteredContacts.filter((contact: any) => {
+        const uploadDate = new Date(contact.uploadDate)
+        return uploadDate > threeDaysAgo
+      }).length
+
+      setPersonalStats({
+        callsToday,
+        callsThisWeek,
+        callsThisMonth,
+        conversionRate,
+        hotLeads,
+        conversions,
+        weeklyCalls
+      })
+
+      // For admin, calculate team stats
+      if (isAdmin) {
+        const teamCallsThisMonth = contacts.filter((contact: any) => {
+        const uploadDate = new Date(contact.uploadDate);
+        return uploadDate >= startOfMonth;
+      }).length;
+      
+        const teamConversions = contacts.filter((contact: any) => 
+          contact.status === "ASSIGNED"
+        ).length
+
+        const teamConversionRate = teamCallsThisMonth > 0
+          ? Math.round((teamConversions / teamCallsThisMonth) * 100 * 10) / 10
+          : 0
+
+        setTeamStats({
+          totalCalls: teamCallsThisMonth,
+          totalConversions: teamConversions,
+          averageConversionRate: teamConversionRate,
+          topPerformer: "Calculating...",
+          teamSize: 8
+        })
+      }
+
+    } catch (err: any) {
+      console.error("Error fetching contacts:", err)
+      setError(err.message || "Failed to load contact stats")
+      toast.error("Failed to load performance data")
+    } finally {
+      setLoading(false)
+    }
+  }, [isAdmin])
+
+  useEffect(() => {
+    fetchContacts()
+  }, [fetchContacts, userRole])
 
   return (
     <div className="p-6 space-y-6">
+      {/* Loading and error states */}
+      {loading && <div>Loading data...</div>}
+      {error && <div className="text-red-500">Error: {error}</div>}
+
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{isAdmin ? "Team Analytics" : "My Performance"}</h1>
         <Badge variant="outline">{isAdmin ? "Admin View" : "Personal View"}</Badge>
@@ -128,23 +282,23 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
                 <>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Monday</span>
-                    <span className="text-sm">8 calls</span>
+                    <span className="text-sm">{personalStats.weeklyCalls.monday} calls</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Tuesday</span>
-                    <span className="text-sm">12 calls</span>
+                    <span className="text-sm">{personalStats.weeklyCalls.tuesday} calls</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Wednesday</span>
-                    <span className="text-sm">15 calls</span>
+                    <span className="text-sm">{personalStats.weeklyCalls.wednesday} calls</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Thursday</span>
-                    <span className="text-sm">9 calls</span>
+                    <span className="text-sm">{personalStats.weeklyCalls.thursday} calls</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Friday</span>
-                    <span className="text-sm">11 calls</span>
+                    <span className="text-sm">{personalStats.weeklyCalls.friday} calls</span>
                   </div>
                 </>
               )}

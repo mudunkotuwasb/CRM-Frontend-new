@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Phone, TrendingUp, Target, Plus, HelpCircle } from "lucide-react"
 import { ContactPopup } from "@/components/ui/contactpopup"
-import { useEffect, useState } from "react"; //Import for state management
+import { useEffect, useState } from "react";
 import endpoints from "@/lib/endpoints";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -24,18 +24,30 @@ interface Contact {
 }
 
 export function StaffDashboard() {
-  const stats = {
-    callsToday: 12,
-    callsThisWeek: 47,
+  const [stats,setStats] = useState( {
+    callsToday: 0,
+    callsThisWeek: 0,
     callsThisMonth: 189,
     hotLeads: 8,
-    conversionsThisMonth: 3,
+    conversionsThisMonth: 0,
     assignedContacts: 156,
-  }
+  })
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  //Calculate start of the week
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
 
   //State for recent contacts and loading status
   const [recentContacts, setRecentContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+
 
   //catch recent contacts from backend
   useEffect(() => {
@@ -59,6 +71,37 @@ export function StaffDashboard() {
             )
             .slice(0, 3);
           setRecentContacts(sortedContacts);
+
+          //Calculate contacts added today
+          const contactsToday = response.data.allContacts.filter((contact: Contact) => {
+            const contactDate = new Date(contact.uploadDate);
+            contactDate.setHours(0, 0, 0, 0);
+            return contactDate.getTime() === today.getTime();
+          }).length;
+
+
+          //Calculate contacts added this week
+          const contactsThisWeek = response.data.allContacts.filter((contact: Contact) => {
+            const contactDate = new Date(contact.uploadDate);
+            return contactDate >= startOfWeek;
+          }).length;
+
+
+          //Calculate contacts added this month
+          const contactsThisMonth = response.data.allContacts.filter((contact: Contact) => {
+            const contactDate = new Date(contact.uploadDate);
+            return (
+              contactDate.getMonth() === currentMonth &&
+              contactDate.getFullYear() === currentYear
+            );
+          }).length;
+
+          setStats(prevStats => ({
+            ...prevStats,
+            callsToday: contactsToday,
+            callsThisWeek: contactsThisWeek,
+            conversionsThisMonth: contactsThisMonth
+          }));
         }
       } catch (err: unknown) {
         let errorMessage = "Failed to load contacts";
@@ -79,7 +122,6 @@ export function StaffDashboard() {
     };
 
     RecentContacts();
-
   }, []);
   return (
     <div className="p-6 space-y-6">
@@ -104,7 +146,7 @@ export function StaffDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.callsToday}</div>
             <p className="text-xs text-muted-foreground">
-              Today • {stats.callsThisWeek} this week • {stats.callsThisMonth}{" "}this month
+              Today • {stats.callsThisWeek} this week • {stats.conversionsThisMonth}{" "}this month
             </p>
           </CardContent>
         </Card>

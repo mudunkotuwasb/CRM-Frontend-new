@@ -13,17 +13,64 @@ import { useRouter } from "next/navigation"
 import axios from "axios"
 import endpoints from "@/lib/endpoints"
 
-export function ContactPopup({ children }: { children?: React.ReactNode }) {
+interface Contact {
+  _id: string;
+  name: string;
+  company: string;
+  position: string;
+  phone: string;
+  email: string;
+  status: string;
+  lastContact: string | Date;
+  assignedTo: string;
+  uploadedBy: string;
+  uploadDate: string | Date;
+  contactHistory?: ContactHistory[];
+}
+interface ContactHistory {
+  id: number;
+  date: string;
+  contactedBy: string;
+  notes: string;
+  outcome: string;
+  nextAction?: string;
+  scheduledDate?: string;
+}
+
+interface ContactPopupProps {
+  children?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  contact?: Contact;
+  viewMode?: boolean; //Add viewMode interface propup
+}
+
+
+//Read-only field component
+const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
+  <div className="space-y-2">
+    <Label className="text-gray-500">{label}</Label>
+    <p className="font-medium">{value || "-"}</p>
+  </div>
+);
+
+export function ContactPopup({
+  children,
+  open,
+  onOpenChange,
+  contact,
+  viewMode = false,
+}: ContactPopupProps) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [_open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    name: "",
-    company: "",
-    position: "",
-    email: "",
-    phone: "",
-    status: "UNASSIGNED",
+    name: contact?.name || "",
+    company: contact?.company || "",
+    position: contact?.position || "",
+    email: contact?.email || "",
+    phone: contact?.phone || "",
+    status: contact?.status || "UNASSIGNED",
   })
   const [errors, setErrors] = useState({
     name: "",
@@ -88,39 +135,39 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    
+
     // Phone number validation - only allow digits
     if (name === "phone") {
       if (value === "" || /^\d+$/.test(value)) {
-        setFormData(prev => ({ ...prev, [name]: value }))
+        setFormData((prev) => ({ ...prev, [name]: value }))
       }
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }))
+      setFormData((prev) => ({ ...prev, [name]: value }))
     }
-    
+
     // Clear error when user starts typing
     if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: "" }))
+      setErrors((prev) => ({ ...prev, [name]: "" }))
     }
-  }
+  };
 
   const handleStatusChange = (value: string) => {
-    setFormData(prev => ({ ...prev, status: value }))
-  }
+    setFormData((prev) => ({ ...prev, status: value }))
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
-      return
+      return;
     }
-    
+
     setLoading(true);
 
     try {
       const userId = localStorage.getItem("user_id") || localStorage.getItem("userId");
       const authToken = localStorage.getItem("authToken") || localStorage.getItem("token");
-      
+
       if (!userId || userId === "undefined" || userId === "null") {
         throw new Error("Please login again");
       }
@@ -129,69 +176,78 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
         throw new Error("Authentication token missing");
       }
 
-      const payload = {
-        name: formData.name.trim(),
-        company: formData.company.trim(),
-        position: formData.position.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        uploadedBy: userId,
-        uploadDate: new Date().toISOString(),
-        status: formData.status,
-        assignedTo: "Unassigned",
-        lastContact: new Date(0).toISOString()
-      };
+      let response;
+      if (contact) {
+        const updatePayload = {
+          name: formData.name.trim(),
+          company: formData.company.trim(),
+          position: formData.position.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          status: formData.status,
+        };
+        response = await api.put(
+          endpoints.contact.updateContact(contact._id),
+          updatePayload
+        );
+      } else {
 
-      try {
-        const checkResponse = await api.get(endpoints.contact.getAllContacts, {
-          params: {
-            email: payload.email
-          }
-        });
-
-        if (checkResponse.data?.some((contact: any) => 
-          contact.contactInfo?.email === payload.email
-        )) {
-          throw new Error("A contact with this email already exists");
-        }
-      } catch (checkError) {
-        console.warn("Duplicate check failed, proceeding anyway", checkError);
+        const addPayload = {
+          name: formData.name.trim(),
+          company: formData.company.trim(),
+          position: formData.position.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          status: formData.status,
+          uploadedBy: userId,
+          uploadDate: new Date().toISOString(),
+          assignedTo: "Unassigned",
+          lastContact: new Date(0).toISOString(),
+        };
+        response = await api.post(endpoints.contact.addContact, addPayload);
       }
-
-      const response = await api.post(endpoints.contact.addContact, payload);
 
       if (!response.data?.success) {
         throw new Error(response.data?.message || "Failed to add contact");
       }
 
-      toast.success("Contact added successfully");
-      
-      setFormData({
-        name: "",
-        company: "",
-        position: "",
-        email: "",
-        phone: "",
-        status: "UNASSIGNED",
-      });
-      setOpen(false);
+      toast.success(`Contact ${contact ? "updated" : "added"} successfully`);
 
+      if (!contact) {
+        setFormData({
+          name: "",
+          company: "",
+          position: "",
+          email: "",
+          phone: "",
+          status: "UNASSIGNED",
+        });
+      }
+
+      // Close the popup
+      if (onOpenChange) {
+        onOpenChange(false);
+      } else {
+        setOpen(false);
+      }
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 500) {
-          if (error.response?.data?.message?.includes('duplicate key')) {
+          if (error.response?.data?.message?.includes("duplicate key")) {
             toast.error("A contact with this email already exists");
           } else {
             toast.error("Server error. Please try again later.");
           }
         } else if (error.response?.status === 401) {
           toast.error("Session expired. Please login again");
-          ['authToken', 'token', 'userId', 'user_id'].forEach(key => 
+          ["authToken", "token", "userId", "user_id"].forEach((key) =>
             localStorage.removeItem(key)
           );
           router.push("/auth/login");
         } else {
-          toast.error(error.response?.data?.message || "Failed to add contact");
+          toast.error(
+            error.response?.data?.message || "Failed to save contact"
+          );
         }
       } else if (error instanceof Error) {
         toast.error(error.message);
@@ -204,7 +260,10 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open !== undefined ? open : _open}
+      onOpenChange={onOpenChange || setOpen}
+    >
       <DialogTrigger asChild>
         {children || (
           <Button>
@@ -215,8 +274,71 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-[650px] rounded-lg">
         <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-xl font-semibold text-gray-800">Add New Contact</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-gray-800">
+            {viewMode ? "Contact Details" : contact ? "Edit Contact" : "Add New Contact"}
+          </DialogTitle>
         </DialogHeader>
+
+        {viewMode ? (
+          <div className="space-y-6 py-4 px-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <ReadOnlyField label="Name" value={contact?.name || ""} />
+                  <ReadOnlyField label="Company" value={contact?.company || ""} />
+                  <ReadOnlyField label="Position" value={contact?.position || ""} />
+                  <ReadOnlyField label="Status" value={contact?.status || ""} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <ReadOnlyField label="Email" value={contact?.email || ""} />
+                  <ReadOnlyField label="Phone" value={contact?.phone || ""} />
+                  <ReadOnlyField 
+                    label="Last Contact" 
+                    value={contact?.lastContact ? new Date(contact.lastContact).toLocaleDateString() : "Never"} 
+                  />
+                  <ReadOnlyField label="Assigned To" value={contact?.assignedTo || ""} />
+                </div>
+              </div>
+            </div>
+
+            {contact?.contactHistory && contact.contactHistory.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Contact History</h3>
+                <div className="border rounded-lg p-4">
+                  {contact.contactHistory.map((history) => (
+                    <div key={history.id} className="border-b py-3 last:border-b-0">
+                      <div className="flex justify-between">
+                        <p className="font-medium">
+                          {new Date(history.date).toLocaleDateString()}
+                        </p>
+                        <p className="text-gray-500">By: {history.contactedBy}</p>
+                      </div>
+                      <p className="mt-1">{history.notes}</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Outcome: {history.outcome}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4 border-t">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => onOpenChange?.(false) || setOpen(false)}
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : (
+
         <form onSubmit={handleSubmit} className="space-y-6 py-4 px-1">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -238,7 +360,7 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
                   <p className="text-red-500 text-sm mt-1">{errors.name}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="company" className="text-gray-700 font-medium">
                   Company <span className="text-red-500">*</span>
@@ -278,7 +400,7 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
                   <p className="text-red-500 text-sm mt-1">{errors.position}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="status" className="text-gray-700 font-medium">
                   Status <span className="text-red-500">*</span>
@@ -318,7 +440,7 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
                   <p className="text-red-500 text-sm mt-1">{errors.email}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="phone" className="text-gray-700 font-medium">
                   Phone <span className="text-red-500">*</span>
@@ -361,12 +483,17 @@ export function ContactPopup({ children }: { children?: React.ReactNode }) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Adding...
+                  {contact ? "Updating contact" : "Adding contact"}
                 </span>
-              ) : "Add Contact"}
+              ) : contact ? (
+                "Update Contact"
+              ) : (
+                "Add Contact"
+              )}
             </Button>
           </div>
         </form>
+         )}
       </DialogContent>
     </Dialog>
   )
