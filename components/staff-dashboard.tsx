@@ -33,13 +33,7 @@ export function StaffDashboard() {
     assignedContacts: 156,
   })
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  //Calculate start of the week
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
 
   //State for recent contacts and loading status
   const [recentContacts, setRecentContacts] = useState<Contact[]>([]);
@@ -72,35 +66,8 @@ export function StaffDashboard() {
             .slice(0, 3);
           setRecentContacts(sortedContacts);
 
-          //Calculate contacts added today
-          const contactsToday = response.data.allContacts.filter((contact: Contact) => {
-            const contactDate = new Date(contact.uploadDate);
-            contactDate.setHours(0, 0, 0, 0);
-            return contactDate.getTime() === today.getTime();
-          }).length;
-
-
-          //Calculate contacts added this week
-          const contactsThisWeek = response.data.allContacts.filter((contact: Contact) => {
-            const contactDate = new Date(contact.uploadDate);
-            return contactDate >= startOfWeek;
-          }).length;
-
-
-          //Calculate contacts added this month
-          const contactsThisMonth = response.data.allContacts.filter((contact: Contact) => {
-            const contactDate = new Date(contact.uploadDate);
-            return (
-              contactDate.getMonth() === currentMonth &&
-              contactDate.getFullYear() === currentYear
-            );
-          }).length;
-
           setStats(prevStats => ({
             ...prevStats,
-            callsToday: contactsToday,
-            callsThisWeek: contactsThisWeek,
-            conversionsThisMonth: contactsThisMonth
           }));
         }
       } catch (err: unknown) {
@@ -128,51 +95,10 @@ export function StaffDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">My Dashboard</h1>
         <div className="flex space-x-2">
-          <Button variant="outline">
-            <HelpCircle className="mr-2 h-4 w-4" />
-            Request Help
-          </Button>
           <ContactPopup />
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Calls Made</CardTitle>
-            <Phone className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.callsToday}</div>
-            <p className="text-xs text-muted-foreground">
-              Today • {stats.callsThisWeek} this week • {stats.conversionsThisMonth}{" "}this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hot Leads</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.hotLeads}</div>
-            <p className="text-xs text-muted-foreground">Ready for follow-up</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversions</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.conversionsThisMonth}</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Quick Actions */}
       <Card>
@@ -192,15 +118,6 @@ export function StaffDashboard() {
                 Add Contact
               </Button>
             </ContactPopup>
-
-            <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-              <TrendingUp className="h-6 w-6 mb-2" />
-              Request Leads
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-              <HelpCircle className="h-6 w-6 mb-2" />
-              Get Help
-            </Button>
           </div>
         </CardContent>
       </Card>
