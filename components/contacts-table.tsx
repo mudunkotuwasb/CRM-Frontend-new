@@ -402,11 +402,14 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
               onOpenChange={(open) => {
                 setOpenEditPopup(open);
                 if (!open) {
-                  setRefreshContacts((prev) => !prev); // Refresh contacts when popup closes
+                  setRefreshContacts((prev) => !prev);
                   setViewMode(false);
-                }
-              }}
-              contact={selectedContact}
+                  }
+                }}
+              contact={{
+              ...selectedContact,
+             status: selectedContact?.status === "Assigned" ? "ASSIGNED" : "UNASSIGNED"
+    }}
               viewMode={viewMode}
             >
               <Button className="hidden">Edit Contact Trigger</Button>
