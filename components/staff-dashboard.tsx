@@ -69,7 +69,7 @@ export function StaffDashboard() {
                 new Date(b.uploadDate).getTime() -
                 new Date(a.uploadDate).getTime()
             )
-            .slice(0, 3);
+            .slice(0, 5);
           setRecentContacts(sortedContacts);
 
           //Calculate contacts added today
@@ -160,27 +160,6 @@ export function StaffDashboard() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button className="h-20 flex flex-col">
-              <Phone className="h-6 w-6 mb-2" />
-              Log Call
-            </Button>
-
-            <ContactPopup>
-              <Button variant="outline" className="h-20 flex flex-col bg-transparent">
-                <Plus className="h-6 w-6 mb-2" />
-                Add Contact
-              </Button>
-            </ContactPopup>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Recent Contacts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -206,7 +185,7 @@ export function StaffDashboard() {
                         {new Date(contact.uploadDate).toLocaleDateString()}
                       </p>
                     </div>
-                    <Button size="sm">Call</Button>
+                    
                   </div>
                 ))}
               </div>
