@@ -286,10 +286,6 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                 <Calendar className="mr-2 h-4 w-4" />
                 Schedule Calls
               </Button>
-              <Button size="sm" variant="outline">
-                <Zap className="mr-2 h-4 w-4" />
-                Quick Update
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -348,26 +344,10 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleQuickAction(contact, "call")}
-                        className="h-8 px-2"
-                      >
-                        <Phone className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
                         onClick={() => handleQuickAction(contact, "follow-up")}
                         className="h-8 px-2"
                       >
                         <MessageSquare className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleQuickAction(contact, "schedule")}
-                        className="h-8 px-2"
-                      >
-                        <Calendar className="h-3 w-3" />
                       </Button>
                     </div>
                   </TableCell>
