@@ -69,7 +69,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [filterBy, setFilterBy] = useState<'name' | 'company' | 'email'>('name');
 
   useEffect(() => {
-    const getContactsByEmail = async () => {
+    const getContactsById = async () => {
       setLoading(true);
       setError(null);
 
@@ -80,27 +80,33 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           throw new Error("Authentication token missing");
         }
 
-        const userEmail = localStorage.getItem("userEmail"); //check email
-        if (!userEmail) {
-          console.log("User Email is missing - please login again");
-          throw new Error("User Email missing");
+        const userId = localStorage.getItem("userId"); //get user ID from login
+        if (!userId) {
+          console.log("User ID is missing - please login again");
+          throw new Error("User ID missing");
         }
 
-        const response = await api.post(endpoints.contact.getContactsByEmail, {
-          email: userEmail,
+        console.log("Fetching contacts for user ID:", userId);
+        console.log("Request payload:", { adminId: userId });
+
+        const response = await api.post(endpoints.contact.getContactsByAdminId, {
+          adminId: userId, // Send user ID as adminId to match backend expectation
         }); //endpoint call
+
+        console.log("API Response:", response.data);
 
         if (!response.data) {
           console.log("No data received from CRM backend");
+          return;
         }
 
-        // Handle no contacts are found in your email
-    if (!response.data.success || !response.data.contacts) {
-      toast.info("No contacts found for your email");
-      setContacts([]);
-      setFilteredContacts([]);
-      return;
-    }
+        // Handle no contacts are found for your user ID
+        if (!response.data.contacts || response.data.contacts.length === 0) {
+          toast.info("No contacts found for your account");
+          setContacts([]);
+          setFilteredContacts([]);
+          return;
+        }
 
         const contactsData = response.data.contacts;
 
@@ -110,7 +116,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           name: contact.name || "no name",
           company: contact.company || "no Company",
           position: contact.position || "",
-          email: contact.email || userEmail,
+          email: contact.email || "",
           phone: contact.phone || "",
           status: contact.status === "ASSIGNED" ? "Assigned" : "Unassigned",
           lastContact: contact.lastContact? new Date(contact.lastContact): new Date(0),
@@ -133,11 +139,15 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       }
     };
 
-    getContactsByEmail();
+    getContactsById(); // Changed function name
   }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "Assigned":
+        return "bg-green-100 text-green-800"
+      case "Unassigned":
+        return "bg-blue-100 text-blue-800"
       case "Hot Lead":
         return "bg-red-100 text-red-800"
       case "Follow-up":

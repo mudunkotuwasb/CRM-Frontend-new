@@ -9,7 +9,7 @@ const endpoints = {
     getAllContacts: `/contact-manager/allContacts`,
      assignContacts: `/contact-manager/assignContacts`,
      getContactDetails: `/contact-manager/getContact`,
-     getContactsByEmail: `/contact-manager/getContactByEmail`,
+     getContactsByAdminId: `/contact-manager/getContactsByAdminId`,
      updateContact: (id: string) => `/contact-manager/updateContact/${id}`,
     
   }
