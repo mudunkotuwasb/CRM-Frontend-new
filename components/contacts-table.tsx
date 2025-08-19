@@ -66,6 +66,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [refreshContacts, setRefreshContacts] = useState(false);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [viewMode, setViewMode] = useState(false);
+  const [filterBy, setFilterBy] = useState<'name' | 'company' | 'email'>('name');
 
   useEffect(() => {
     const getContactsByEmail = async () => {
@@ -173,7 +174,17 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         });
   };
 
-
+const filterContacts = (type: 'name' | 'company' | 'email') => {
+  setFilterBy(type);
+  if (searchTerm.trim() === "") {
+    setFilteredContacts(contacts);
+  } else {
+    const filtered = contacts.filter(contact =>
+      contact[type].toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredContacts(filtered);
+  }
+};
 
     // Add: Filter contacts based on search term
   useEffect(() => {
@@ -181,11 +192,11 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       setFilteredContacts(contacts);
     } else {
       const filtered = contacts.filter(contact =>
-        contact.name.toLowerCase().includes(searchTerm.toLowerCase())
+      contact[filterBy].toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredContacts(filtered);
     }
-  }, [searchTerm, contacts]);
+  }, [searchTerm, contacts, filterBy]);
 
 
 
@@ -215,25 +226,41 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       </div>
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search contacts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filter
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Search and Filters */}
+<Card>
+  <CardContent className="pt-6">
+    <div className="flex space-x-4">
+      <div className="flex-1 relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+  placeholder={`Search by ${filterBy}...`}
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  className="pl-10"
+/>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter By
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => filterContacts('name')}>
+            Name
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => filterContacts('company')}>
+            Company
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => filterContacts('email')}>
+            Email
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  </CardContent>
+</Card>
 
       {/* Quick Actions Bar */}
       <Card>
@@ -351,7 +378,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                           Edit Contact
                         </DropdownMenuItem>
                         <DropdownMenuItem>Add Note</DropdownMenuItem>
-                        <DropdownMenuItem>Mark as Hot Lead</DropdownMenuItem>
+                        
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

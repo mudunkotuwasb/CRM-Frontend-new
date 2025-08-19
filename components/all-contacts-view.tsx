@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import axios from "axios"
 import { ContactPopup } from "@/components/ui/contactpopup"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface Contact {
   _id: string
@@ -48,6 +49,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userDataMap, setUserDataMap] = useState<Record<string, string>>({});   //state to store user data
+  const [filterType, setFilterType] = useState<'name' | 'company' | 'email'>('name');
   
   
 
@@ -106,12 +108,9 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const displayContacts = allContacts.filter(contact => !contact.isDeleted)
   const unassignedContacts = displayContacts.filter(contact => contact.status === "UNASSIGNED")
 
-  const filteredContacts = displayContacts.filter(
-    (contact) =>
-      contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+const filteredContacts = displayContacts.filter(contact => 
+  contact[filterType].toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   const handleSelectContact = (contactId: string, checked: boolean) => {
     if (checked) {
@@ -244,24 +243,39 @@ const getUploaderName = (contact: Contact) => {
       </div>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search contacts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filter
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+  <CardContent className="pt-6">
+    <div className="flex space-x-4">
+      <div className="flex-1 relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={`Search by ${filterType}...`}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter: {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setFilterType('name')}>
+            Name
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setFilterType('company')}>
+            Company
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setFilterType('email')}>
+            Email
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  </CardContent>
+</Card>
 
       {userRole !== "admin" && (
         <Card>
