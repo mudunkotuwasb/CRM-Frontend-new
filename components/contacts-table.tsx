@@ -18,7 +18,10 @@ import {
   Filter,
   MessageSquare,
   Calendar,
-  Zap,
+  Trash2,
+  Eye,
+  Edit,
+  StickyNote,
 } from "lucide-react"
 import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
@@ -142,6 +145,49 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     getContactsById(); // Changed function name
   }, []);
 
+
+  const handleDeleteContact = async (contact: Contact) => {
+  if (!window.confirm(`Are you sure you want to delete ${contact.name} from ${contact.company}? This action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    console.log(`Deleting contact with ID: ${contact._id}`);
+    
+    const response = await api.delete(endpoints.contact.deleteContact(contact._id), {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (response.data.success) {
+      toast.success("Contact deleted successfully");
+      // Remove the contact from the local state instead of refreshing
+      setContacts(prev => prev.filter(c => c._id !== contact._id));
+      setFilteredContacts(prev => prev.filter(c => c._id !== contact._id));
+    } else {
+      throw new Error(response.data.message || "Failed to delete contact");
+    }
+  } catch (error: any) {
+    console.error("Delete error details:", error);
+    
+    // More detailed error logging
+    if (error.response) {
+      console.error("Server response:", error.response.data);
+      console.error("Status code:", error.response.status);
+      console.error("Error message:", error.response.data?.message);
+      console.error("Error details:", error.response.data?.error);
+    }
+    
+    const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         error.message || 
+                         "Failed to delete contact";
+    
+    toast.error(`Delete failed: ${errorMessage}`);
+  }
+}
 
   // Helper function to map backend status values to display values
   const mapStatusToDisplay = (status: string): string => {
@@ -382,13 +428,23 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                         <DropdownMenuItem
                           onClick={() => handleViewDetails(contact)}
                         >
+                          <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
                         <DropdownMenuItem  onClick={() => { setSelectedContact(contact);setOpenEditPopup(true);}}>
+                          <Edit className="mr-2 h-4 w-4" />
                           Edit Contact
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Add Note</DropdownMenuItem>
-                        
+                        <DropdownMenuItem>
+                           <StickyNote className="mr-2 h-4 w-4" />
+                          Add Note</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteContact(contact)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Contact
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

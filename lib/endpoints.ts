@@ -12,6 +12,7 @@ const endpoints = {
      getContactsByAdminId: `/contact-manager/getContactsByAdminId`,
      updateContact: (id: string) => `/contact-manager/updateContact/${id}`,
      updateStatus: "/contact-manager/updateStatus",
+     deleteContact: (id: string) => `/contact-manager/delete/${id}`,
     
   }
 } as const;
