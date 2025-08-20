@@ -118,8 +118,8 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           position: contact.position || "",
           email: contact.email || "",
           phone: contact.phone || "",
-          status: contact.status === "ASSIGNED" ? "Assigned" : "Unassigned",
-          lastContact: contact.lastContact? new Date(contact.lastContact): new Date(0),
+          status: mapStatusToDisplay(contact.status),
+          lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
           assignedTo: contact.assignedTo || "Unassigned",
           uploadedBy: contact.uploadedBy || "System",
           uploadDate: contact.uploadDate? new Date(contact.uploadDate): new Date(),
@@ -141,6 +141,27 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
     getContactsById(); // Changed function name
   }, []);
+
+
+  // Helper function to map backend status values to display values
+  const mapStatusToDisplay = (status: string): string => {
+    switch (status) {
+      case "UNASSIGNED":
+        return "Unassigned";
+      case "ASSIGNED":
+        return "Assigned";
+      case "IN_PROGRESS":
+        return "In Progress";
+      case "COMPLETED":
+        return "Completed";
+      case "PENDING":
+        return "Pending";
+      case "REJECTED":
+        return "Rejected";
+      default:
+        return status; // Return as-is if not recognized
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -234,8 +255,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
           </ContactPopup>
         </div>
       </div>
-
-      {/* Search and Filters */}
+          
       {/* Search and Filters */}
 <Card>
   <CardContent className="pt-6">
@@ -338,7 +358,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                       {contact.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(contact.uploadDate)}</TableCell>
+                  <TableCell>{formatDate(contact.lastContact)}</TableCell>
                   <TableCell>
                     <div className="flex space-x-1">
                       <Button

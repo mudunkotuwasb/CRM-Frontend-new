@@ -26,7 +26,7 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT_COMPLETE"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE"
   lastContact: string | Date
   isDeleted: boolean
 }
@@ -171,7 +171,7 @@ const filteredContacts = displayContacts.filter(contact =>
   }
 
 
-  const handleStatusChange = async (contactId: string, newStatus: "COMPLETED" | "NOT_COMPLETE") => {
+  const handleStatusChange = async (contactId: string, newStatus: "COMPLETED" | "NOT COMPLETE") => {
     try {
       const response = await api.post(endpoints.contact.updateStatus, {
         contactId,
@@ -208,7 +208,7 @@ const getStatusBadge = (contact: Contact) => {
         return <Badge variant="secondary" className="bg-yellow-50 text-yellow-600">Assigned</Badge>;
       case "COMPLETED":
         return <Badge variant="secondary" className="bg-green-50 text-green-600">Completed</Badge>;
-      case "NOT_COMPLETE":
+      case "NOT COMPLETE":
         return <Badge variant="secondary" className="bg-red-50 text-red-600">Not Complete</Badge>;
       default:
         return <Badge variant="secondary">Unknown</Badge>;
@@ -428,7 +428,7 @@ const getUploaderName = (contact: Contact) => {
                             <span>Completed</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleStatusChange(contact._id, "NOT_COMPLETE")}
+                            onClick={() => handleStatusChange(contact._id, "NOT COMPLETE")}
                             className="flex items-center"
                           >
                             <XCircle className="mr-2 h-4 w-4 text-red-600" />
