@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, Filter, Users, Eye, Upload, Download } from "lucide-react"
+import { Search, Plus, Filter, Users, Eye, Upload, Download, XCircle, CheckCircle } from "lucide-react"
 import api from "@/lib/api"
 import endpoints from "@/lib/endpoints"
 import { useRouter } from "next/navigation"
@@ -26,7 +26,7 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT_COMPLETE"
   lastContact: string | Date
   isDeleted: boolean
 }
@@ -170,11 +170,51 @@ const filteredContacts = displayContacts.filter(contact =>
     }
   }
 
-  const getStatusBadge = (contact: Contact) => {
-    return contact.status === "UNASSIGNED" 
-      ? <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
-      : <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+
+  const handleStatusChange = async (contactId: string, newStatus: "COMPLETED" | "NOT_COMPLETE") => {
+    try {
+      const response = await api.post(endpoints.contact.updateStatus, {
+        contactId,
+        status: newStatus
+      });
+
+      if (response.data?.success) {
+        setAllContacts(prevContacts =>
+          prevContacts.map(contact =>
+            contact._id === contactId
+              ? { 
+                  ...contact, 
+                  status: newStatus,
+                  lastContact: new Date() // Update last contact date
+                }
+              : contact
+          )
+        );
+        toast.success(`Contact status updated to ${newStatus === "COMPLETED" ? "Completed" : "Not Complete"}`);
+      } else {
+        throw new Error(response.data?.message || "Failed to update contact status");
+      }
+    } catch (error) {
+      console.error("Status update error:", error);
+      toast.error("Failed to update contact status. Please try again.");
+    }
+  };
+
+const getStatusBadge = (contact: Contact) => {
+    switch(contact.status) {
+      case "UNASSIGNED":
+        return <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>;
+      case "ASSIGNED":
+        return <Badge variant="secondary" className="bg-yellow-50 text-yellow-600">Assigned</Badge>;
+      case "COMPLETED":
+        return <Badge variant="secondary" className="bg-green-50 text-green-600">Completed</Badge>;
+      case "NOT_COMPLETE":
+        return <Badge variant="secondary" className="bg-red-50 text-red-600">Not Complete</Badge>;
+      default:
+        return <Badge variant="secondary">Unknown</Badge>;
+    }
   }
+
 
   const formatDate = (date: string | Date) => {
     if (!date) return "Never"
@@ -373,9 +413,29 @@ const getUploaderName = (contact: Contact) => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(contact._id, "COMPLETED")}
+                            className="flex items-center"
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                            <span>Completed</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(contact._id, "NOT_COMPLETE")}
+                            className="flex items-center"
+                          >
+                            <XCircle className="mr-2 h-4 w-4 text-red-600" />
+                            <span>Not Complete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

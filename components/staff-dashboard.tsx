@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Phone, TrendingUp, Target, Plus, HelpCircle } from "lucide-react"
+import { Phone, TrendingUp, Target,CheckCircle  } from "lucide-react"
 import { ContactPopup } from "@/components/ui/contactpopup"
 import { useEffect, useState } from "react";
 import endpoints from "@/lib/endpoints";
@@ -43,6 +43,7 @@ export function StaffDashboard() {
 
   //State for recent contacts and loading status
   const [recentContacts, setRecentContacts] = useState<Contact[]>([]);
+  const [completedContacts, setCompletedContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
@@ -71,6 +72,15 @@ export function StaffDashboard() {
             )
             .slice(0, 5);
           setRecentContacts(sortedContacts);
+
+          // Get completed contacts (status = "COMPLETED")
+          const completed = response.data.allContacts
+            .filter((contact: Contact) => contact.status === "COMPLETED")
+            .sort((a: Contact, b: Contact) => 
+              new Date(b.lastContact).getTime() - new Date(a.lastContact).getTime()
+            )
+            .slice(0, 5);
+          setCompletedContacts(completed);
 
           //Calculate contacts added today
           const contactsToday = response.data.allContacts.filter((contact: Contact) => {
@@ -199,32 +209,40 @@ export function StaffDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
+            <CardTitle className="flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
+              Completed Contacts
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Follow-up call with John A.</p>
-                  <p className="text-xs text-muted-foreground">10:00 AM</p>
-                </div>
+            {completedContacts.length > 0 ? (
+              <div className="space-y-4">
+                {completedContacts.map((contact) => (
+                  <div
+                    key={contact._id}
+                    className="flex items-center justify-between p-2 border rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{contact.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {contact.company} - {contact.position}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Last Contact:{" "}
+                        {new Date(contact.lastContact).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                      Completed
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Demo call with Sarah W.</p>
-                  <p className="text-xs text-muted-foreground">2:00 PM</p>
-                </div>
+            ) : (
+              <div className="flex justify-center items-center h-32">
+                <p className="text-muted-foreground">No completed contacts</p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Team sync meeting</p>
-                  <p className="text-xs text-muted-foreground">4:00 PM</p>
-                </div>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
