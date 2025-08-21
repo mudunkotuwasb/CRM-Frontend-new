@@ -27,6 +27,7 @@ import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
 import { toast } from "sonner";
 import { ContactPopup } from "@/components/ui/contactpopup"
+import { NotePopup } from "@/components/ui/note-popup"
 
 interface Contact {
   _id: string
@@ -404,19 +405,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                       {contact.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(contact.lastContact)}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleQuickAction(contact, "follow-up")}
-                        className="h-8 px-2"
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  <TableCell>{formatDate(contact.lastContact)}</TableCell> 
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -435,9 +424,16 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Contact
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                           <StickyNote className="mr-2 h-4 w-4" />
-                          Add Note</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                             <NotePopup contact={contact} onNoteAdded={() => {
+                                 setRefreshContacts(prev => !prev);
+                               }}>
+                         <div className="flex items-center cursor-pointer">
+                            <StickyNote className="mr-2 h-4 w-4" />
+                          Add Note
+                         </div>
+                        </NotePopup>
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => handleDeleteContact(contact)}
                           className="text-red-600 focus:text-red-600"
@@ -462,10 +458,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                   setViewMode(false);
                   }
                 }}
-              contact={{
-              ...selectedContact,
-             status: selectedContact?.status === "Assigned" ? "ASSIGNED" : "UNASSIGNED"
-    }}
+              contact={selectedContact}
               viewMode={viewMode}
             >
               <Button className="hidden">Edit Contact Trigger</Button>

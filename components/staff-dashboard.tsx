@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Phone, TrendingUp, Target,CheckCircle  } from "lucide-react"
+import { Phone, TrendingUp, Target,CheckCircle, Plus  } from "lucide-react"
 import { ContactPopup } from "@/components/ui/contactpopup"
 import { useEffect, useState } from "react";
 import endpoints from "@/lib/endpoints";
@@ -138,7 +138,12 @@ export function StaffDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">My Dashboard</h1>
         <div className="flex space-x-2">
-          <ContactPopup />
+          <ContactPopup>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Contact
+          </Button>
+          </ContactPopup>
         </div>
       </div>
 

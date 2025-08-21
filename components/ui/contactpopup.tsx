@@ -22,7 +22,6 @@ interface Contact {
   email: string;
   status: string;
   lastContact: string | Date;
-  assignedTo: string;
   uploadedBy: string;
   uploadDate: string | Date;
   contactHistory?: ContactHistory[];
@@ -44,13 +43,13 @@ interface ContactPopupProps {
   contact?: Contact;
   viewMode?: boolean; //Add viewMode interface propup
 }
-
-
 //Read-only field component
 const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
   <div className="space-y-2">
-    <Label className="text-gray-500">{label}</Label>
-    <p className="font-medium">{value || "-"}</p>
+    <Label className="text-sm font-medium text-gray-600">{label}</Label>
+    <p className="text-base font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-200 min-h-[40px] flex items-center">
+      {value || "-"}
+    </p>
   </div>
 );
 
@@ -266,72 +265,101 @@ export function ContactPopup({
     >
       <DialogTrigger asChild>
         {children || (
-          <Button>
+          <Button className="bg-blue-600 hover:bg-blue-700 transition-colors duration-200 shadow-sm">
             <Plus className="mr-2 h-4 w-4" />
             Add Contact
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[650px] rounded-lg">
-        <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-xl font-semibold text-gray-800">
-            {viewMode ? "Contact Details" : contact ? "Edit Contact" : "Add New Contact"}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[700px] rounded-xl shadow-xl border-0 bg-white p-0 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-2xl font-bold">
+              {viewMode ? "Contact Details" : contact ? "Edit Contact" : "Add New Contact"}
+            </DialogTitle>
+            {!viewMode && (
+              <p className="text-blue-100 opacity-90">
+                {contact ? "Update the contact information" : "Add a new contact to your database"}
+              </p>
+            )}
+          </DialogHeader>
+        </div>
 
         {viewMode ? (
-          <div className="space-y-6 py-4 px-1">
+          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <div className="space-y-4">
-                  <ReadOnlyField label="Name" value={contact?.name || ""} />
-                  <ReadOnlyField label="Company" value={contact?.company || ""} />
-                  <ReadOnlyField label="Position" value={contact?.position || ""} />
-                  <ReadOnlyField label="Status" value={contact?.status || ""} />
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                  <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Personal Information</h3>
+                  <div className="space-y-4">
+                    <ReadOnlyField label="Name" value={contact?.name || ""} />
+                    <ReadOnlyField label="Position" value={contact?.position || ""} />
+                    <ReadOnlyField label="Status" value={contact?.status || ""} />
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-4">
-                  <ReadOnlyField label="Email" value={contact?.email || ""} />
-                  <ReadOnlyField label="Phone" value={contact?.phone || ""} />
-                  <ReadOnlyField 
-                    label="Last Contact" 
-                    value={contact?.lastContact ? new Date(contact.lastContact).toLocaleDateString() : "Never"} 
-                  />
-                  <ReadOnlyField label="Assigned To" value={contact?.assignedTo || ""} />
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                  <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Contact Information</h3>
+                  <div className="space-y-4">
+                    <ReadOnlyField label="Company" value={contact?.company || ""} />
+                    <ReadOnlyField label="Email" value={contact?.email || ""} />
+                    <ReadOnlyField label="Phone" value={contact?.phone || ""} />
+                  </div>
                 </div>
               </div>
             </div>
 
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Additional Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ReadOnlyField 
+                  label="Last Contact" 
+                  value={contact?.lastContact ? new Date(contact.lastContact).toLocaleDateString() : "Never"} 
+                />
+                
+              </div>
+            </div>
+
             {contact?.contactHistory && contact.contactHistory.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Contact History</h3>
-                <div className="border rounded-lg p-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Contact History</h3>
+                <div className="space-y-3">
                   {contact.contactHistory.map((history) => (
-                    <div key={history.id} className="border-b py-3 last:border-b-0">
-                      <div className="flex justify-between">
-                        <p className="font-medium">
-                          {new Date(history.date).toLocaleDateString()}
-                        </p>
-                        <p className="text-gray-500">By: {history.contactedBy}</p>
+                    <div key={history.id} className="bg-white p-4 rounded-md border border-gray-200 shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {new Date(history.date).toLocaleDateString()}
+                          </p>
+                          
+                        </div>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                          {history.outcome}
+                        </span>
                       </div>
-                      <p className="mt-1">{history.notes}</p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Outcome: {history.outcome}
-                      </p>
+                      <p className="mt-3 text-gray-700">{history.notes}</p>
+                      {history.nextAction && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Next Action:</span> {history.nextAction}
+                            {history.scheduledDate && ` (${new Date(history.scheduledDate).toLocaleDateString()})`}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="flex justify-end pt-4 border-t">
+            <div className="flex justify-end pt-4 border-t border-gray-200">
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => onOpenChange?.(false) || setOpen(false)}
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Close
               </Button>
@@ -339,11 +367,11 @@ export function ContactPopup({
           </div>
         ) : (
 
-        <form onSubmit={handleSubmit} className="space-y-6 py-4 px-1">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-gray-700 font-medium">
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700">
                   Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -351,18 +379,23 @@ export function ContactPopup({
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
-                    errors.name ? "border-red-500" : ""
+                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.name ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
                   }`}
                   placeholder="John Doe"
                 />
                 {errors.name && (
-                  <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.name}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="company" className="text-gray-700 font-medium">
+                <Label htmlFor="company" className="text-sm font-medium text-gray-700">
                   Company <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -370,20 +403,25 @@ export function ContactPopup({
                   name="company"
                   value={formData.company}
                   onChange={handleChange}
-                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
-                    errors.company ? "border-red-500" : ""
+                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.company ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
                   }`}
                   placeholder="Acme Inc."
                 />
                 {errors.company && (
-                  <p className="text-red-500 text-sm mt-1">{errors.company}</p>
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.company}
+                  </p>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="position" className="text-gray-700 font-medium">
+                <Label htmlFor="position" className="text-sm font-medium text-gray-700">
                   Position <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -391,30 +429,35 @@ export function ContactPopup({
                   name="position"
                   value={formData.position}
                   onChange={handleChange}
-                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
-                    errors.position ? "border-red-500" : ""
+                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.position ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
                   }`}
                   placeholder="Marketing Manager"
                 />
                 {errors.position && (
-                  <p className="text-red-500 text-sm mt-1">{errors.position}</p>
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.position}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status" className="text-gray-700 font-medium">
+                <Label htmlFor="status" className="text-sm font-medium text-gray-700">
                   Status <span className="text-red-500">*</span>
                 </Label>
                 <Select 
                   value={formData.status} 
                   onValueChange={handleStatusChange}
                 >
-                  <SelectTrigger className="border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                  <SelectTrigger className={`border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors`}>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ASSIGNED" className="hover:bg-gray-100">ASSIGNED</SelectItem>
-                    <SelectItem value="UNASSIGNED" className="hover:bg-gray-100">UNASSIGNED</SelectItem>
+                    <SelectItem value="ASSIGNED" className="hover:bg-blue-50 focus:bg-blue-50">ASSIGNED</SelectItem>
+                    <SelectItem value="UNASSIGNED" className="hover:bg-blue-50 focus:bg-blue-50">UNASSIGNED</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -422,7 +465,7 @@ export function ContactPopup({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700 font-medium">
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                   Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -431,18 +474,23 @@ export function ContactPopup({
                   type="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
-                    errors.email ? "border-red-500" : ""
+                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.email ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
                   }`}
                   placeholder="john@example.com"
                 />
                 {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.email}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-gray-700 font-medium">
+                <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
                   Phone <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -450,32 +498,37 @@ export function ContactPopup({
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className={`border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
-                    errors.phone ? "border-red-500" : ""
+                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors.phone ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
                   }`}
                   placeholder="1234567890"
                   maxLength={10}
                 />
                 {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.phone}
+                  </p>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => setOpen(false)}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              onClick={() => onOpenChange ? onOpenChange(false) : setOpen(false)}
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center">
@@ -483,7 +536,7 @@ export function ContactPopup({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  {contact ? "Updating contact" : "Adding contact"}
+                  {contact ? "Updating..." : "Adding..."}
                 </span>
               ) : contact ? (
                 "Update Contact"
