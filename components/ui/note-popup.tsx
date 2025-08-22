@@ -121,27 +121,25 @@ export function NotePopup({ contact, children, onNoteAdded }: NotePopupProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[550px] rounded-xl shadow-xl border-0 bg-white p-0 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="text-2xl font-bold">
-              Add Note for {contact.name}
-            </DialogTitle>
-            <p className="text-blue-100 opacity-90">
-              Record your conversation details and next steps
-            </p>
-          </DialogHeader>
-        </div>
+      <DialogContent className="sm:max-w-[600px] rounded-lg">
+        <DialogHeader className="pb-4 border-b">
+          <DialogTitle className="text-xl font-semibold text-gray-800">
+            Add Note for {contact.name}
+          </DialogTitle>
+          <p className="text-sm text-gray-500 mt-1">
+            Record your conversation details and next steps
+          </p>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label
-                htmlFor="notes"
-                className="text-sm font-medium text-gray-700"
-              >
-                Notes <span className="text-red-500">*</span>
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="notes" className="text-sm font-medium text-gray-700">
+                  Notes
+                </Label>
+                <span className="text-xs text-red-500">Required</span>
+              </div>
               <textarea
                 id="notes"
                 name="notes"
@@ -154,90 +152,53 @@ export function NotePopup({ contact, children, onNoteAdded }: NotePopupProps) {
                 }}
                 placeholder="Enter notes"
                 required
-                className="w-full rounded-md border border-gray-300 p-2 transition-colors 
-             focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-             whitespace-pre-wrap normal-case tracking-normal 
-             !whitespace-pre-line !break-normal"
+                className="w-full min-h-[100px] p-3 text-sm border border-gray-300 rounded-md 
+                  focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                  resize-none transition-colors"
                 rows={3}
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label
-                  htmlFor="outcome"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  Outcome <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="outcome" className="text-sm font-medium text-gray-700">
+                    Outcome
+                  </Label>
+                  <span className="text-xs text-red-500">Required</span>
+                </div>
                 <Select
                   value={formData.outcome}
-                  onValueChange={(value) =>
-                    handleSelectChange("outcome", value)
-                  }
+                  onValueChange={(value) => handleSelectChange("outcome", value)}
                   required
                 >
-                  <SelectTrigger className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <SelectValue placeholder="Select outcome" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem
-                      value="interested"
-                      className="hover:bg-blue-50 focus:bg-blue-50"
-                    >
-                      Interested
-                    </SelectItem>
-                    <SelectItem
-                      value="not_interested"
-                      className="hover:bg-blue-50 focus:bg-blue-50"
-                    >
-                      Not Interested
-                    </SelectItem>
-                    <SelectItem
-                      value="follow_up"
-                      className="hover:bg-blue-50 focus:bg-blue-50"
-                    >
-                      Follow Up Required
-                    </SelectItem>
-                    <SelectItem
-                      value="no_response"
-                      className="hover:bg-blue-50 focus:bg-blue-50"
-                    >
-                      No Response
-                    </SelectItem>
-                    <SelectItem
-                      value="callback"
-                      className="hover:bg-blue-50 focus:bg-blue-50"
-                    >
-                      Callback Scheduled
-                    </SelectItem>
+                    <SelectItem value="interested">Interested</SelectItem>
+                    <SelectItem value="not_interested">Not Interested</SelectItem>
+                    <SelectItem value="follow_up">Follow Up Required</SelectItem>
+                    <SelectItem value="no_response">No Response</SelectItem>
+                    <SelectItem value="callback">Callback Scheduled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label
-                  htmlFor="nextAction"
-                  className="text-sm font-medium text-gray-700"
-                >
+                <Label htmlFor="nextAction" className="text-sm font-medium text-gray-700">
                   Next Action
                 </Label>
                 <Select
                   value={formData.nextAction}
-                  onValueChange={(value) =>
-                    handleSelectChange("nextAction", value)
-                  }
+                  onValueChange={(value) => handleSelectChange("nextAction", value)}
                 >
-                  <SelectTrigger className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                  <SelectTrigger className="w-full border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                     <SelectValue placeholder="Select next action" />
                   </SelectTrigger>
                   <SelectContent>
                     {nextActions.map((action, index) => (
-                      <SelectItem
-                        key={index}
-                        value={action}
-                        className="hover:bg-blue-50 focus:bg-blue-50"
-                      >
+                      <SelectItem key={index} value={action}>
                         {action}
                       </SelectItem>
                     ))}
@@ -247,10 +208,7 @@ export function NotePopup({ contact, children, onNoteAdded }: NotePopupProps) {
             </div>
 
             <div className="space-y-2">
-              <Label
-                htmlFor="scheduledDate"
-                className="text-sm font-medium text-gray-700"
-              >
+              <Label htmlFor="scheduledDate" className="text-sm font-medium text-gray-700">
                 Scheduled Date
               </Label>
               <Input
@@ -259,24 +217,24 @@ export function NotePopup({ contact, children, onNoteAdded }: NotePopupProps) {
                 type="datetime-local"
                 value={formData.scheduledDate}
                 onChange={handleInputChange}
-                className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              className="px-4 py-2"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700"
             >
               {loading ? (
                 <span className="flex items-center">

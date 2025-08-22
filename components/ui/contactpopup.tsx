@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import axios from "axios"
 import endpoints from "@/lib/endpoints"
+import { Trash2 } from "lucide-react"
 
 interface Contact {
   _id: string;
@@ -41,9 +42,10 @@ interface ContactPopupProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   contact?: Contact;
-  viewMode?: boolean; //Add viewMode interface propup
+  viewMode?: boolean;
 }
-//Read-only field component
+
+// Read-only field component
 const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
   <div className="space-y-2">
     <Label className="text-sm font-medium text-gray-600">{label}</Label>
@@ -52,6 +54,26 @@ const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
     </p>
   </div>
 );
+
+
+const mapDisplayToStatus = (displayStatus: string): string => {
+  switch (displayStatus) {
+    case "Unassigned":
+      return "UNASSIGNED";
+    case "Assigned":
+      return "ASSIGNED";
+    case "In Progress":
+      return "IN_PROGRESS";
+    case "Completed":
+      return "COMPLETED";
+    case "Pending":
+      return "PENDING";
+    case "Rejected":
+      return "REJECTED";
+    default:
+      return displayStatus;
+  }
+};
 
 export function ContactPopup({
   children,
@@ -69,8 +91,8 @@ export function ContactPopup({
     position: contact?.position || "",
     email: contact?.email || "",
     phone: contact?.phone || "",
-    status: contact?.status || "UNASSIGNED",
-  })
+    status: contact?.status ? mapDisplayToStatus(contact.status) : "UNASSIGNED",
+  });
   const [errors, setErrors] = useState({
     name: "",
     company: "",
@@ -190,7 +212,6 @@ export function ContactPopup({
           updatePayload
         );
       } else {
-
         const addPayload = {
           name: formData.name.trim(),
           company: formData.company.trim(),
@@ -258,6 +279,63 @@ export function ContactPopup({
     }
   };
 
+  const handleDeleteHistory = async (historyId: number) => {
+    if (!contact?._id) return;
+
+    if (!confirm("Are you sure you want to delete this contact history?")) {
+      return;
+    }
+
+    try {
+      console.log("Deleting history:", {
+        contactId: contact._id,
+        historyId,
+        endpoint: endpoints.contact.deleteContactHistory(
+          contact._id,
+          historyId
+        ),
+      });
+
+      const response = await api.delete(
+        endpoints.contact.deleteContactHistory(contact._id, historyId)
+      );
+
+      if (response.data.success) {
+        toast.success("Contact history deleted successfully");
+        // Refresh the data
+        router.refresh();
+        if (onOpenChange) {
+          onOpenChange(false);
+          setTimeout(() => onOpenChange(true), 100);
+        } else {
+          setOpen(false);
+          setTimeout(() => setOpen(true), 100);
+        }
+      } else {
+        throw new Error(
+          response.data.message || "Failed to delete contact history"
+        );
+      }
+    } catch (error: any) {
+      console.error("Full error details:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+      });
+
+      if (error.response?.status === 400) {
+        toast.error("Invalid request. Please try again.");
+      } else if (error.response?.status === 404) {
+        toast.error("Contact or history not found.");
+      } else {
+        toast.error(
+          error.response?.data?.message || "Failed to delete contact history"
+        );
+      }
+    }
+  };
+
   return (
     <Dialog
       open={open !== undefined ? open : _open}
@@ -265,45 +343,62 @@ export function ContactPopup({
     >
       <DialogTrigger asChild>
         {children || (
-          <Button className="bg-blue-600 hover:bg-blue-700 transition-colors duration-200 shadow-sm">
+          <Button className="bg-blue-600 hover:bg-blue-700">
             <Plus className="mr-2 h-4 w-4" />
             Add Contact
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[700px] rounded-xl shadow-xl border-0 bg-white p-0 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="text-2xl font-bold">
-              {viewMode ? "Contact Details" : contact ? "Edit Contact" : "Add New Contact"}
-            </DialogTitle>
-            {!viewMode && (
-              <p className="text-blue-100 opacity-90">
-                {contact ? "Update the contact information" : "Add a new contact to your database"}
-              </p>
-            )}
-          </DialogHeader>
-        </div>
+      <DialogContent className="sm:max-w-[700px] rounded-lg">
+        <DialogHeader className="pb-4 border-b">
+          <DialogTitle className="text-xl font-semibold text-gray-800">
+            {viewMode
+              ? "Contact Details"
+              : contact
+              ? "Edit Contact"
+              : "Add New Contact"}
+          </DialogTitle>
+          {!viewMode && (
+            <p className="text-sm text-gray-500 mt-1">
+              {contact
+                ? "Update the contact information"
+                : "Add a new contact to your database"}
+            </p>
+          )}
+        </DialogHeader>
 
         {viewMode ? (
-          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+          <div className="mt-4 space-y-6 max-h-[70vh] overflow-y-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Personal Information</h3>
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                  <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">
+                    Personal Information
+                  </h3>
                   <div className="space-y-4">
                     <ReadOnlyField label="Name" value={contact?.name || ""} />
-                    <ReadOnlyField label="Position" value={contact?.position || ""} />
-                    <ReadOnlyField label="Status" value={contact?.status || ""} />
+                    <ReadOnlyField
+                      label="Position"
+                      value={contact?.position || ""}
+                    />
+                    <ReadOnlyField
+                      label="Status"
+                      value={contact?.status || ""}
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Contact Information</h3>
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                  <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">
+                    Contact Information
+                  </h3>
                   <div className="space-y-4">
-                    <ReadOnlyField label="Company" value={contact?.company || ""} />
+                    <ReadOnlyField
+                      label="Company"
+                      value={contact?.company || ""}
+                    />
                     <ReadOnlyField label="Email" value={contact?.email || ""} />
                     <ReadOnlyField label="Phone" value={contact?.phone || ""} />
                   </div>
@@ -311,29 +406,37 @@ export function ContactPopup({
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-              <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Additional Information</h3>
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">
+                Additional Information
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ReadOnlyField 
-                  label="Last Contact" 
-                  value={contact?.lastContact ? new Date(contact.lastContact).toLocaleDateString() : "Never"} 
+                <ReadOnlyField
+                  label="Last Contact"
+                  value={
+                    contact?.lastContact
+                      ? new Date(contact.lastContact).toLocaleDateString()
+                      : "Never"
+                  }
                 />
-                
               </div>
             </div>
-
             {contact?.contactHistory && contact.contactHistory.length > 0 && (
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">Contact History</h3>
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">
+                  Contact History
+                </h3>
                 <div className="space-y-3">
                   {contact.contactHistory.map((history) => (
-                    <div key={history.id} className="bg-white p-4 rounded-md border border-gray-200 shadow-sm">
+                    <div
+                      key={history.id}
+                      className="bg-white p-4 rounded-md border shadow-sm relative"
+                    >
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="font-medium text-gray-900">
                             {new Date(history.date).toLocaleDateString()}
                           </p>
-                          
                         </div>
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                           {history.outcome}
@@ -343,210 +446,251 @@ export function ContactPopup({
                       {history.nextAction && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <p className="text-sm text-gray-600">
-                            <span className="font-medium">Next Action:</span> {history.nextAction}
-                            {history.scheduledDate && ` (${new Date(history.scheduledDate).toLocaleDateString()})`}
+                            <span className="font-medium">Next Action:</span>{" "}
+                            {history.nextAction}
+                            {history.scheduledDate &&
+                              ` (${new Date(
+                                history.scheduledDate
+                              ).toLocaleDateString()})`}
                           </p>
                         </div>
                       )}
+                      <button
+                        onClick={() => handleDeleteHistory(history.id)}
+                        className="mt-3 ml-auto p-1 text-red-400 hover:text-red-600 block"
+                        title="Delete this history"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="flex justify-end pt-4 border-t border-gray-200">
-              <Button 
-                type="button" 
-                variant="outline" 
+            <div className="flex justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => onOpenChange?.(false) || setOpen(false)}
-                className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Close
               </Button>
             </div>
           </div>
         ) : (
+          <form onSubmit={handleSubmit} className="mt-4 space-y-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="name"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Name
+                    </Label>
+                    <span className="text-xs text-red-500">Required</span>
+                  </div>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className={
+                      errors.name ? "border-red-500 focus:ring-red-500" : ""
+                    }
+                    placeholder="John Doe"
+                  />
+                  {errors.name && (
+                    <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                  )}
+                </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.name ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="John Doe"
-                />
-                {errors.name && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {errors.name}
-                  </p>
-                )}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="company"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Company
+                    </Label>
+                    <span className="text-xs text-red-500">Required</span>
+                  </div>
+                  <Input
+                    id="company"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleChange}
+                    className={
+                      errors.company ? "border-red-500 focus:ring-red-500" : ""
+                    }
+                    placeholder="Acme Inc."
+                  />
+                  {errors.company && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.company}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="company" className="text-sm font-medium text-gray-700">
-                  Company <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="company"
-                  name="company"
-                  value={formData.company}
-                  onChange={handleChange}
-                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.company ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Acme Inc."
-                />
-                {errors.company && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {errors.company}
-                  </p>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="position"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Position
+                    </Label>
+                    <span className="text-xs text-red-500">Required</span>
+                  </div>
+                  <Input
+                    id="position"
+                    name="position"
+                    value={formData.position}
+                    onChange={handleChange}
+                    className={
+                      errors.position ? "border-red-500 focus:ring-red-500" : ""
+                    }
+                    placeholder="Marketing Manager"
+                  />
+                  {errors.position && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.position}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="status"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Status
+                    </Label>
+                    <span className="text-xs text-red-500">Required</span>
+                  </div>
+                  <Select
+                    value={formData.status}
+                    onValueChange={handleStatusChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ASSIGNED">ASSIGNED</SelectItem>
+                      <SelectItem value="UNASSIGNED">UNASSIGNED</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="email"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Email
+                    </Label>
+                    <span className="text-xs text-red-500">Required</span>
+                  </div>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className={
+                      errors.email ? "border-red-500 focus:ring-red-500" : ""
+                    }
+                    placeholder="john@example.com"
+                  />
+                  {errors.email && (
+                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="phone"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Phone
+                    </Label>
+                    <span className="text-xs text-red-500">Required</span>
+                  </div>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className={
+                      errors.phone ? "border-red-500 focus:ring-red-500" : ""
+                    }
+                    placeholder="1234567890"
+                    maxLength={10}
+                  />
+                  {errors.phone && (
+                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="position" className="text-sm font-medium text-gray-700">
-                  Position <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="position"
-                  name="position"
-                  value={formData.position}
-                  onChange={handleChange}
-                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.position ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Marketing Manager"
-                />
-                {errors.position && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  onOpenChange ? onOpenChange(false) : setOpen(false)
+                }
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
-                    {errors.position}
-                  </p>
+                    {contact ? "Updating..." : "Adding..."}
+                  </span>
+                ) : contact ? (
+                  "Update Contact"
+                ) : (
+                  "Add Contact"
                 )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status" className="text-sm font-medium text-gray-700">
-                  Status <span className="text-red-500">*</span>
-                </Label>
-                <Select 
-                  value={formData.status} 
-                  onValueChange={handleStatusChange}
-                >
-                  <SelectTrigger className={`border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors`}>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ASSIGNED" className="hover:bg-blue-50 focus:bg-blue-50">ASSIGNED</SelectItem>
-                    <SelectItem value="UNASSIGNED" className="hover:bg-blue-50 focus:bg-blue-50">UNASSIGNED</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              </Button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.email ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="john@example.com"
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {errors.email}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                  Phone <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className={`transition-colors focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.phone ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="1234567890"
-                  maxLength={10}
-                />
-                {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {errors.phone}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange ? onOpenChange(false) : setOpen(false)}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {contact ? "Updating..." : "Adding..."}
-                </span>
-              ) : contact ? (
-                "Update Contact"
-              ) : (
-                "Add Contact"
-              )}
-            </Button>
-          </div>
-        </form>
-         )}
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   )
