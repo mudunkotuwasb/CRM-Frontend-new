@@ -305,7 +305,9 @@ export function StaffStatsView() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Avg. Daily Contacts</span>
-                <span className="text-sm font-bold">185</span>
+                <span className="text-sm font-bold">
+                   {Math.round(currentStats.contactsThisWeek / (new Date().getDay() || 7))}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Conversion Rate</span>

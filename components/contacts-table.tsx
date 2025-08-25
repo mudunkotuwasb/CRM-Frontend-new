@@ -18,12 +18,16 @@ import {
   Filter,
   MessageSquare,
   Calendar,
-  Zap,
+  Trash2,
+  Eye,
+  Edit,
+  StickyNote,
 } from "lucide-react"
 import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
 import { toast } from "sonner";
 import { ContactPopup } from "@/components/ui/contactpopup"
+import { NotePopup } from "@/components/ui/note-popup"
 
 interface Contact {
   _id: string
@@ -118,8 +122,8 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           position: contact.position || "",
           email: contact.email || "",
           phone: contact.phone || "",
-          status: contact.status === "ASSIGNED" ? "Assigned" : "Unassigned",
-          lastContact: contact.lastContact? new Date(contact.lastContact): new Date(0),
+          status: mapStatusToDisplay(contact.status),
+          lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
           assignedTo: contact.assignedTo || "Unassigned",
           uploadedBy: contact.uploadedBy || "System",
           uploadDate: contact.uploadDate? new Date(contact.uploadDate): new Date(),
@@ -141,6 +145,70 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
     getContactsById(); // Changed function name
   }, []);
+
+
+  const handleDeleteContact = async (contact: Contact) => {
+  if (!window.confirm(`Are you sure you want to delete ${contact.name} from ${contact.company}? This action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    console.log(`Deleting contact with ID: ${contact._id}`);
+    
+    const response = await api.delete(endpoints.contact.deleteContact(contact._id), {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (response.data.success) {
+      toast.success("Contact deleted successfully");
+      // Remove the contact from the local state instead of refreshing
+      setContacts(prev => prev.filter(c => c._id !== contact._id));
+      setFilteredContacts(prev => prev.filter(c => c._id !== contact._id));
+    } else {
+      throw new Error(response.data.message || "Failed to delete contact");
+    }
+  } catch (error: any) {
+    console.error("Delete error details:", error);
+    
+    // More detailed error logging
+    if (error.response) {
+      console.error("Server response:", error.response.data);
+      console.error("Status code:", error.response.status);
+      console.error("Error message:", error.response.data?.message);
+      console.error("Error details:", error.response.data?.error);
+    }
+    
+    const errorMessage = error.response?.data?.message || 
+                         error.response?.data?.error || 
+                         error.message || 
+                         "Failed to delete contact";
+    
+    toast.error(`Delete failed: ${errorMessage}`);
+  }
+}
+
+  // Helper function to map backend status values to display values
+  const mapStatusToDisplay = (status: string): string => {
+    switch (status) {
+      case "UNASSIGNED":
+        return "Unassigned";
+      case "ASSIGNED":
+        return "Assigned";
+      case "IN_PROGRESS":
+        return "In Progress";
+      case "COMPLETED":
+        return "Completed";
+      case "PENDING":
+        return "Pending";
+      case "REJECTED":
+        return "Rejected";
+      default:
+        return status; // Return as-is if not recognized
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -234,8 +302,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
           </ContactPopup>
         </div>
       </div>
-
-      {/* Search and Filters */}
+          
       {/* Search and Filters */}
 <Card>
   <CardContent className="pt-6">
@@ -285,10 +352,6 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
               <Button size="sm" variant="outline">
                 <Calendar className="mr-2 h-4 w-4" />
                 Schedule Calls
-              </Button>
-              <Button size="sm" variant="outline">
-                <Zap className="mr-2 h-4 w-4" />
-                Quick Update
               </Button>
             </div>
           </div>
@@ -342,35 +405,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                       {contact.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDate(contact.uploadDate)}</TableCell>
-                  <TableCell>
-                    <div className="flex space-x-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleQuickAction(contact, "call")}
-                        className="h-8 px-2"
-                      >
-                        <Phone className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleQuickAction(contact, "follow-up")}
-                        className="h-8 px-2"
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleQuickAction(contact, "schedule")}
-                        className="h-8 px-2"
-                      >
-                        <Calendar className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  <TableCell>{formatDate(contact.lastContact)}</TableCell> 
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -382,13 +417,30 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                         <DropdownMenuItem
                           onClick={() => handleViewDetails(contact)}
                         >
+                          <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
                         <DropdownMenuItem  onClick={() => { setSelectedContact(contact);setOpenEditPopup(true);}}>
+                          <Edit className="mr-2 h-4 w-4" />
                           Edit Contact
                         </DropdownMenuItem>
-                        <DropdownMenuItem>Add Note</DropdownMenuItem>
-                        
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                             <NotePopup contact={contact} onNoteAdded={() => {
+                                 setRefreshContacts(prev => !prev);
+                               }}>
+                         <div className="flex items-center cursor-pointer">
+                            <StickyNote className="mr-2 h-4 w-4" />
+                          Add Note
+                         </div>
+                        </NotePopup>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleDeleteContact(contact)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Contact
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -406,10 +458,7 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                   setViewMode(false);
                   }
                 }}
-              contact={{
-              ...selectedContact,
-             status: selectedContact?.status === "Assigned" ? "ASSIGNED" : "UNASSIGNED"
-    }}
+              contact={selectedContact}
               viewMode={viewMode}
             >
               <Button className="hidden">Edit Contact Trigger</Button>
