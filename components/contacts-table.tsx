@@ -28,6 +28,7 @@ import endpoints from "@/lib/endpoints";
 import { toast } from "sonner";
 import { ContactPopup } from "@/components/ui/contactpopup"
 import { NotePopup } from "@/components/ui/note-popup"
+import { ScheduleCallPopup } from "@/components/ui/schedule-call-popup"
 
 interface Contact {
   _id: string
@@ -349,10 +350,13 @@ const filterContacts = (type: 'name' | 'company' | 'email') => {
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Bulk Follow-up
               </Button>
+              
+         <ScheduleCallPopup contacts={filteredContacts}>
               <Button size="sm" variant="outline">
-                <Calendar className="mr-2 h-4 w-4" />
+              <Calendar className="mr-2 h-4 w-4" />
                 Schedule Calls
               </Button>
+         </ScheduleCallPopup>
             </div>
           </div>
         </CardContent>
