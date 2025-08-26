@@ -15,6 +15,9 @@ const endpoints = {
      deleteContact: (id: string) => `/contact-manager/delete/${id}`,
      addNote: (contactId: string) => `/contact-manager/${contactId}/notes`,
      deleteContactHistory: (contactId: string, historyId: number) => `/contact-manager/${contactId}/history/${historyId}`,
+     scheduleCalls: `/contact-manager/scheduleCalls`,
+     getScheduledCalls: `/contact-manager/scheduledCalls`,
+     deleteScheduledCall: (id: string) => `/contact-manager/scheduledCalls/${id}`,
     
   }
 } as const;
