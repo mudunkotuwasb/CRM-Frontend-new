@@ -32,6 +32,8 @@ import { toast } from "sonner";
 import { ContactPopup } from "@/components/ui/contactpopup"
 import { NotePopup } from "@/components/ui/note-popup"
 import { ScheduleCallPopup } from "@/components/ui/schedule-call-popup"
+import Papa from "papaparse"
+import axios from "axios"
 
 interface Contact {
   _id: string
@@ -314,7 +316,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: false,
-      complete: (results) => {
+      complete: (results: Papa.ParseResult<CSVContact>) => {
         if (results.errors.length > 0) {
           console.error("CSV parsing errors:", results.errors)
           toast.error("Error parsing CSV file")
