@@ -100,13 +100,13 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       setError(null);
 
       try {
-        const token = localStorage.getItem("token"); //check token
+        const token = localStorage.getItem("token");
         if (!token) {
           console.log("Authentication error - please login again");
           throw new Error("Authentication token missing");
         }
 
-        const userId = localStorage.getItem("userId"); //get user ID from login
+        const userId = localStorage.getItem("userId");
         if (!userId) {
           console.log("User ID is missing - please login again");
           throw new Error("User ID missing");
@@ -116,8 +116,8 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         console.log("Request payload:", { adminId: userId });
 
         const response = await api.post(endpoints.contact.getContactsByAdminId, {
-          adminId: userId, // Send user ID as adminId to match backend expectation
-        }); //endpoint call
+          adminId: userId,
+        });
 
         console.log("API Response:", response.data);
 
@@ -126,7 +126,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           return;
         }
 
-        // Handle no contacts are found for your user ID
         if (!response.data.contacts || response.data.contacts.length === 0) {
           toast.info("No contacts found for your account");
           setContacts([]);
@@ -136,7 +135,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
         const contactsData = response.data.contacts;
 
-        // Transform each contact in the array
         const transformedContacts = contactsData.map((contact: any) => ({
           _id: contact._id,
           name: contact.name || "no name",
@@ -152,7 +150,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           contactHistory: contact.contactHistory || [],
         }));
 
-        // Set the transformed all contacts in array
         setContacts(transformedContacts);
         setFilteredContacts(transformedContacts);
       } catch (error: any) {
@@ -165,7 +162,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       }
     };
 
-    getContactsById(); // Changed function name
+    getContactsById();
   }, []);
 
   const handleDeleteContact = async (contact: Contact) => {
@@ -185,7 +182,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
       if (response.data.success) {
         toast.success("Contact deleted successfully");
-        // Remove the contact from the local state instead of refreshing
         setContacts(prev => prev.filter(c => c._id !== contact._id));
         setFilteredContacts(prev => prev.filter(c => c._id !== contact._id));
       } else {
@@ -194,7 +190,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     } catch (error: any) {
       console.error("Delete error details:", error);
       
-      // More detailed error logging
       if (error.response) {
         console.error("Server response:", error.response.data);
         console.error("Status code:", error.response.status);
@@ -211,7 +206,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     }
   }
 
-  // Helper function to map backend status values to display values
   const mapStatusToDisplay = (status: string): string => {
     switch (status) {
       case "UNASSIGNED":
@@ -227,7 +221,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       case "REJECTED":
         return "Rejected";
       default:
-        return status; // Return as-is if not recognized
+        return status;
     }
   };
 
@@ -237,8 +231,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         return "bg-green-100 text-green-800"
       case "Unassigned":
         return "bg-blue-100 text-blue-800"
-      case "Hot Lead":
-        return "bg-red-100 text-red-800"
       case "Follow-up":
         return "bg-yellow-100 text-yellow-800"
       case "New":
@@ -257,7 +249,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
   const handleViewDetails = (contact: Contact) => {
     setSelectedContact(contact)
-    setViewMode(true); // Set view mode to true
+    setViewMode(true);
     setOpenEditPopup(true);
   }
 
@@ -285,7 +277,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     }
   };
 
-  // Add: Filter contacts based on search term
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredContacts(contacts);
@@ -389,7 +380,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         throw new Error("User ID not found. Please login again.")
       }
 
-      // Use the flat structure that worked in debugging
       const contactsToImport = csvData.map(contact => ({
         name: contact.name,
         company: contact.company || "Default Company",
@@ -445,11 +435,9 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           }
         }
         
-        // Small delay to avoid overwhelming the server
         await new Promise(resolve => setTimeout(resolve, 50))
       }
 
-      // Show results
       if (successCount > 0) {
         toast.success(`${successCount} contacts imported successfully!`)
       }
@@ -459,7 +447,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         console.error("Import errors:", errors)
       }
 
-      // Refresh contacts list if any were successful
       if (successCount > 0) {
         const userId = localStorage.getItem("userId")
         const refreshResponse = await api.post(endpoints.contact.getContactsByAdminId, {
@@ -486,7 +473,6 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         }
       }
 
-      // Reset CSV import state
       setCsvImportOpen(false)
       setCsvData([])
       setCsvPreview([])
@@ -681,17 +667,12 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Quick Actions</h3>
             <div className="flex space-x-2">
-              <Button size="sm" variant="outline">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Bulk Follow-up
-              </Button>
-              
-         <ScheduleCallPopup contacts={filteredContacts}>
-              <Button size="sm" variant="outline">
-              <Calendar className="mr-2 h-4 w-4" />
-                Schedule Calls
-              </Button>
-         </ScheduleCallPopup>
+              <ScheduleCallPopup contacts={filteredContacts}>
+                <Button size="sm" variant="outline">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Schedule Calls
+                </Button>
+              </ScheduleCallPopup>
             </div>
           </div>
         </CardContent>

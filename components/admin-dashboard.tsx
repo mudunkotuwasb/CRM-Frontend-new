@@ -10,7 +10,6 @@ export function AdminDashboard() {
     activeStaff: 8,
     totalContacts: 1247,
     callsToday: 89,
-    hotLeads: 23,
     conversionsThisMonth: 15,
     pendingRequests: 3,
   }
@@ -55,16 +54,7 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hot Leads</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.hotLeads}</div>
-            <p className="text-xs text-muted-foreground">{stats.conversionsThisMonth} converted this month</p>
-          </CardContent>
-        </Card>
+    
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -3,8 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { BarChart3, TrendingUp, Phone, Target, Users } from "lucide-react"
+import { BarChart3, TrendingUp, Phone, Target, Users, Calendar, Clock, Award } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts"
 import api from "@/lib/api"
 import endpoints from "@/lib/endpoints"
 import { toast } from "sonner"
@@ -22,8 +23,8 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
     callsThisWeek: 0,
     callsThisMonth: 0,
     conversionRate: 0,
-    hotLeads: 0,
     conversions: 0,
+    hotLeads: 0,
     weeklyCalls: {
       monday: 0,
       tuesday: 0,
@@ -179,11 +180,46 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
     fetchContacts()
   }, [fetchContacts, userRole])
 
+  // Prepare data for charts
+  const weeklyCallsData = [
+    { day: 'Mon', calls: personalStats.weeklyCalls.monday },
+    { day: 'Tue', calls: personalStats.weeklyCalls.tuesday },
+    { day: 'Wed', calls: personalStats.weeklyCalls.wednesday },
+    { day: 'Thu', calls: personalStats.weeklyCalls.thursday },
+    { day: 'Fri', calls: personalStats.weeklyCalls.friday },
+  ]
+
+  const performanceData = [
+    { name: 'Calls Made', value: personalStats.callsThisMonth, color: '#3b82f6' },
+    { name: 'Conversions', value: personalStats.conversions, color: '#10b981' },
+    { name: 'Hot Leads', value: personalStats.hotLeads, color: '#f59e0b' },
+  ]
+
+  const conversionTrendData = [
+    { period: 'Week 1', rate: Math.max(0, personalStats.conversionRate - 3) },
+    { period: 'Week 2', rate: Math.max(0, personalStats.conversionRate - 1) },
+    { period: 'Week 3', rate: Math.max(0, personalStats.conversionRate + 2) },
+    { period: 'Week 4', rate: personalStats.conversionRate },
+  ]
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+
   return (
     <div className="p-6 space-y-6">
       {/* Loading and error states */}
-      {loading && <div>Loading data...</div>}
-      {error && <div className="text-red-500">Error: {error}</div>}
+      {loading && (
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2">Loading analytics...</span>
+        </div>
+      )}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="text-red-700">Error: {error}</div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">{isAdmin ? "Team Analytics" : "My Performance"}</h1>
@@ -232,117 +268,163 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{isAdmin ? "Team Size" : "Hot Leads"}</CardTitle>
-            {isAdmin ? (
-              <Users className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            )}
+            <CardTitle className="text-sm font-medium">Hot Leads</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isAdmin ? teamStats.teamSize : personalStats.hotLeads}</div>
-            <p className="text-xs text-muted-foreground">{isAdmin ? "Active staff members" : "Ready for follow-up"}</p>
+            <div className="text-2xl font-bold">{personalStats.hotLeads}</div>
+            <p className="text-xs text-muted-foreground">Last 3 days</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Performance Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Calls Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>{isAdmin ? "Team Performance" : "Weekly Activity"}</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Weekly Call Activity
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {isAdmin ? (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Sarah Johnson</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={85} className="w-20" />
-                      <span className="text-sm">85%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Mike Davis</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={72} className="w-20" />
-                      <span className="text-sm">72%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">John Smith</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={68} className="w-20" />
-                      <span className="text-sm">68%</span>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Monday</span>
-                    <span className="text-sm">{personalStats.weeklyCalls.monday} calls</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Tuesday</span>
-                    <span className="text-sm">{personalStats.weeklyCalls.tuesday} calls</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Wednesday</span>
-                    <span className="text-sm">{personalStats.weeklyCalls.wednesday} calls</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Thursday</span>
-                    <span className="text-sm">{personalStats.weeklyCalls.thursday} calls</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Friday</span>
-                    <span className="text-sm">{personalStats.weeklyCalls.friday} calls</span>
-                  </div>
-                </>
-              )}
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={weeklyCallsData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="calls" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Performance Overview Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Performance Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={performanceData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {performanceData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex justify-center gap-4 mt-4">
+              {performanceData.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: item.color }}
+                  ></div>
+                  <span className="text-sm">{item.name}: {item.value}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
+        {/* Conversion Trend Line Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Achievements</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Conversion Rate Trend
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    {isAdmin ? "Team exceeded monthly target" : "Exceeded weekly call target"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">2 days ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    {isAdmin ? "New conversion record set" : "Converted 3 leads this week"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">5 days ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">
-                    {isAdmin ? "Best team performance month" : "Improved conversion rate"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">1 week ago</p>
-                </div>
-              </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={conversionTrendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="period" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`${value}%`, 'Conversion Rate']} />
+                <Line 
+                  type="monotone" 
+                  dataKey="rate" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Quick Stats Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Quick Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+              <span className="text-sm font-medium">Today's Calls</span>
+              <span className="text-lg font-bold text-blue-600">{personalStats.callsToday}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+              <span className="text-sm font-medium">This Week</span>
+              <span className="text-lg font-bold text-green-600">{personalStats.callsThisWeek}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+              <span className="text-sm font-medium">Success Rate</span>
+              <span className="text-lg font-bold text-amber-600">{personalStats.conversionRate}%</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+              <span className="text-sm font-medium">Active Leads</span>
+              <span className="text-lg font-bold text-purple-600">{personalStats.hotLeads}</span>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Additional Insights for Admin */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900">{teamStats.teamSize}</div>
+                <div className="text-sm text-gray-600">Team Members</div>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{teamStats.totalCalls}</div>
+                <div className="text-sm text-gray-600">Total Team Calls</div>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{teamStats.averageConversionRate}%</div>
+                <div className="text-sm text-gray-600">Team Avg. Rate</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

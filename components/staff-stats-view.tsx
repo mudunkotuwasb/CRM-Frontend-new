@@ -263,67 +263,9 @@ export function StaffStatsView() {
 
       {/* Performance Insights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Award className="mr-2 h-5 w-5" />
-              Recent Achievements
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Exceeded daily target</p>
-                  <p className="text-xs text-muted-foreground">Yesterday</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">5-day streak of meeting targets</p>
-                  <p className="text-xs text-muted-foreground">This week</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Best conversion rate this month</p>
-                  <p className="text-xs text-muted-foreground">12.2% conversion rate</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+       
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance Trends</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Avg. Daily Contacts</span>
-                <span className="text-sm font-bold">
-                   {Math.round(currentStats.contactsThisWeek / (new Date().getDay() || 7))}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Conversion Rate</span>
-                <span className="text-sm font-bold">12.2%</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Best Day This Week</span>
-                <span className="text-sm font-bold">Wednesday (210)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Streak</span>
-                <span className="text-sm font-bold">5 days</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        
       </div>
     </div>
   )
