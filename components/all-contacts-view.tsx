@@ -16,6 +16,7 @@ import axios from "axios"
 import { ContactPopup } from "@/components/ui/contactpopup"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { CheckCircle, XCircle } from "lucide-react"
 import Papa from "papaparse"
 
 interface Contact {
@@ -28,7 +29,7 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE"
   lastContact: string | Date
   isDeleted: boolean
 }
@@ -181,6 +182,33 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
     }
   }
 
+    const handleStatusChange = async (
+    contactId: string,
+    newStatus: "COMPLETED" | "NOT COMPLETE"
+  ) => {
+    try {
+      const response = await api.post(endpoints.contact.updateStatus, {
+        contactId,
+        status: newStatus,
+      });
+
+      if (response.data?.success) {
+        setAllContacts((prev) =>
+          prev.map((c) =>
+            c._id === contactId ? { ...c, status: newStatus } : c
+          )
+        );
+        toast.success(`Contact marked as ${newStatus}`);
+      } else {
+        throw new Error(response.data?.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Status update error:", error);
+      toast.error("Failed to update status. Please try again.");
+    }
+  };
+
+
   const getStatusBadge = (contact: Contact) => {
     return contact.status === "UNASSIGNED" 
       ? <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
@@ -218,7 +246,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       header: true,
       skipEmptyLines: true,
       dynamicTyping: false,
-      complete: (results) => {
+      complete: (results: Papa.ParseResult<any>) => {
         if (results.errors.length > 0) {
           console.error("CSV parsing errors:", results.errors)
           toast.error("Error parsing CSV file")
@@ -695,11 +723,34 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                         <span className="text-sm text-muted-foreground">Never</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+               <TableCell>
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="ghost" size="sm">
+        <Eye className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem 
+        onClick={() => handleStatusChange(contact._id, "COMPLETED")}
+        className={contact.status === "COMPLETED" ? "bg-green-50 text-green-700 font-medium" : ""}
+      >
+        <CheckCircle className={`mr-2 h-4 w-4 ${contact.status === "COMPLETED" ? "text-green-600" : "text-gray-400"}`} />
+        Mark as Completed
+        {contact.status === "COMPLETED" }
+      </DropdownMenuItem>
+      <DropdownMenuItem 
+        onClick={() => handleStatusChange(contact._id, "NOT COMPLETE")}
+        className={contact.status === "NOT COMPLETE" ? "bg-red-50 text-red-700 font-medium" : ""}
+      >
+        <XCircle className={`mr-2 h-4 w-4 ${contact.status === "NOT COMPLETE" ? "text-red-600" : "text-gray-400"}`} />
+        Mark as Not Complete
+        {contact.status === "NOT COMPLETE" }
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+</TableCell>
+
                   </TableRow>
                 ))
               ) : (
