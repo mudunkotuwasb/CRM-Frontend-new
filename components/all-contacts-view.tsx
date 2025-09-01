@@ -21,6 +21,7 @@ import Papa from "papaparse"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { Calendar } from "@/components/ui/calendar" 
+import { Flame } from "lucide-react"
 
 interface Contact {
   _id: string
@@ -32,7 +33,7 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE" | "HOT_LEAD"
   lastContact: string | Date
   isDeleted: boolean
   contactHistory?: ContactHistory[]
@@ -145,6 +146,29 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
     fetchContacts()
   }, [router])
+
+  const handleHotLeadChange = async (contactId: string) => {
+  try {
+    const response = await api.post(endpoints.contact.updateStatus, {
+      contactId,
+      status: "HOT_LEAD",
+    });
+
+    if (response.data?.success) {
+      setAllContacts((prev) =>
+        prev.map((c) =>
+          c._id === contactId ? { ...c, status: "HOT_LEAD" } : c
+        )
+      );
+      toast.success("Contact marked as Hot Lead!");
+    } else {
+      throw new Error(response.data?.message || "Failed to mark as Hot Lead");
+    }
+  } catch (error) {
+    console.error("Hot Lead update error:", error);
+    toast.error("Failed to mark as Hot Lead. Please try again.");
+  }
+};
 
 
   //Function to handle view details
@@ -289,10 +313,21 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
 
   const getStatusBadge = (contact: Contact) => {
-    return contact.status === "UNASSIGNED" 
-      ? <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
-      : <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+  switch (contact.status) {
+    case "UNASSIGNED":
+      return <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
+    case "ASSIGNED":
+      return <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+    case "HOT_LEAD":
+      return <Badge variant="secondary" className="bg-orange-50 text-orange-600">Hot Lead</Badge>
+    case "COMPLETED":
+      return <Badge variant="secondary" className="bg-purple-50 text-purple-600">Completed</Badge>
+    case "NOT COMPLETE":
+      return <Badge variant="secondary" className="bg-red-50 text-red-600">Not Complete</Badge>
+    default:
+      return <Badge variant="secondary" className="bg-gray-50 text-gray-600">{contact.status}</Badge>
   }
+}
 
   const formatDate = (date: string | Date) => {
     if (!date) return "Never"
@@ -830,7 +865,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                       )}
                     </TableCell>
                <TableCell>
-                
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
@@ -842,6 +876,17 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
+      
+                      {/*Hot Lead button */}
+                       <DropdownMenuItem 
+                         onClick={() => handleHotLeadChange(contact._id)}
+                         className={contact.status === "HOT_LEAD" ? "bg-orange-50 text-orange-700 font-medium" : ""}
+                        >
+                        <Flame className={`mr-2 h-4 w-4 ${contact.status === "HOT_LEAD" ? "text-orange-600" : "text-gray-400"}`} />
+                            Mark as Hot Lead
+                          {contact.status === "HOT_LEAD" && " ✓"}
+                       </DropdownMenuItem>
+      
                           <DropdownMenuItem 
                             onClick={() => handleStatusChange(contact._id, "COMPLETED")}
                             className={contact.status === "COMPLETED" ? "bg-green-50 text-green-700 font-medium" : ""}
@@ -860,7 +905,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-</TableCell>
+                </TableCell>
 
                   </TableRow>
                 ))
