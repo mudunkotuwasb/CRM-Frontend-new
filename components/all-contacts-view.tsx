@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X } from "lucide-react"
+import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X, Calendar as CalendarIcon, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import api from "@/lib/api"
 import endpoints from "@/lib/endpoints"
 import { useRouter } from "next/navigation"
@@ -18,6 +18,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { CheckCircle, XCircle } from "lucide-react"
 import Papa from "papaparse"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar" 
+import { Flame } from "lucide-react"
 
 interface Contact {
   _id: string
@@ -29,9 +33,21 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE" | "HOT_LEAD"
   lastContact: string | Date
   isDeleted: boolean
+  contactHistory?: ContactHistory[]
+}
+
+//Define ContactHistory interface
+interface ContactHistory {
+  id: number
+  date: string
+  contactedBy: string
+  notes: string
+  outcome: string
+  nextAction?: string
+  scheduledDate?: string
 }
 
 interface AllContactsViewProps {
@@ -62,6 +78,14 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [userDataMap, setUserDataMap] = useState<Record<string, string>>({});
   const [filterType, setFilterType] = useState<'name' | 'company' | 'email'>('name');
   
+  //State for calendar date filter
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+
+  // ADD: Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [contactsPerPage] = useState(10)  
+
   // CSV Import states
   const [csvImportOpen, setCsvImportOpen] = useState(false)
   const [csvData, setCsvData] = useState<CSVContact[]>([])
@@ -69,6 +93,11 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [csvLoading, setCsvLoading] = useState(false)
   const [csvPreview, setCsvPreview] = useState<CSVContact[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  //State for contact details view
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [openEditPopup, setOpenEditPopup] = useState(false)
+  const [viewMode, setViewMode] = useState(false)
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -93,7 +122,8 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
           assignedTo: contact.assignedTo || "Unassigned",
           status: contact.status || "UNASSIGNED",
           lastContact: contact.lastContact || new Date(0),
-          isDeleted: contact.isDeleted || false
+          isDeleted: contact.isDeleted || false,
+          contactHistory: contact.contactHistory || [],
         }))
 
         setAllContacts(transformedContacts)
@@ -117,12 +147,85 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
     fetchContacts()
   }, [router])
 
+  const handleHotLeadChange = async (contactId: string) => {
+  try {
+    const response = await api.post(endpoints.contact.updateStatus, {
+      contactId,
+      status: "HOT_LEAD",
+    });
+
+    if (response.data?.success) {
+      setAllContacts((prev) =>
+        prev.map((c) =>
+          c._id === contactId ? { ...c, status: "HOT_LEAD" } : c
+        )
+      );
+      toast.success("Contact marked as Hot Lead!");
+    } else {
+      throw new Error(response.data?.message || "Failed to mark as Hot Lead");
+    }
+  } catch (error) {
+    console.error("Hot Lead update error:", error);
+    toast.error("Failed to mark as Hot Lead. Please try again.");
+  }
+};
+
+
+  //Function to handle view details
+  const handleViewDetails = (contact: Contact) => {
+    setSelectedContact(contact)
+    setViewMode(true)
+    setOpenEditPopup(true)
+  }
+
   const displayContacts = allContacts.filter(contact => !contact.isDeleted)
   const unassignedContacts = displayContacts.filter(contact => contact.status === "UNASSIGNED")
 
-  const filteredContacts = displayContacts.filter(contact => 
-    contact[filterType].toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredContacts = displayContacts.filter(contact => {
+  const matchesSearch = contact[filterType].toLowerCase().includes(searchTerm.toLowerCase())
+    
+    //If date filter is set, check if upload date matches
+    if (dateFilter) {
+      const uploadDate = new Date(contact.uploadDate)
+      const filterDate = new Date(dateFilter)
+      
+      return matchesSearch && 
+             uploadDate.getDate() === filterDate.getDate() &&
+             uploadDate.getMonth() === filterDate.getMonth() &&
+             uploadDate.getFullYear() === filterDate.getFullYear()
+    }
+    
+    return matchesSearch
+  });
+
+
+  // ADD: Pagination logic
+  const indexOfLastContact = currentPage * contactsPerPage
+  const indexOfFirstContact = indexOfLastContact - contactsPerPage
+  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact)
+  const totalPages = Math.ceil(filteredContacts.length / contactsPerPage)
+
+  // ADD: Change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber)
+
+  // ADD: Go to next page
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  // ADD: Go to previous page
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  //Clear date filter
+  const clearDateFilter = () => {
+    setDateFilter(undefined)
+  }
 
   const handleSelectContact = (contactId: string, checked: boolean) => {
     if (checked) {
@@ -210,10 +313,21 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
 
   const getStatusBadge = (contact: Contact) => {
-    return contact.status === "UNASSIGNED" 
-      ? <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
-      : <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+  switch (contact.status) {
+    case "UNASSIGNED":
+      return <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
+    case "ASSIGNED":
+      return <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+    case "HOT_LEAD":
+      return <Badge variant="secondary" className="bg-orange-50 text-orange-600">Hot Lead</Badge>
+    case "COMPLETED":
+      return <Badge variant="secondary" className="bg-purple-50 text-purple-600">Completed</Badge>
+    case "NOT COMPLETE":
+      return <Badge variant="secondary" className="bg-red-50 text-red-600">Not Complete</Badge>
+    default:
+      return <Badge variant="secondary" className="bg-gray-50 text-gray-600">{contact.status}</Badge>
   }
+}
 
   const formatDate = (date: string | Date) => {
     if (!date) return "Never"
@@ -405,7 +519,8 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
             assignedTo: contact.assignedTo || "Unassigned",
             status: contact.status || "UNASSIGNED",
             lastContact: contact.lastContact || new Date(0),
-            isDeleted: contact.isDeleted || false
+            isDeleted: contact.isDeleted || false,
+            contactHistory: contact.contactHistory || [],
           }))
           setAllContacts(transformedContacts)
         }
@@ -605,6 +720,32 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                 className="pl-10"
               />
             </div>
+            {/*Calendar filter for upload date */}
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter ? format(dateFilter, "PPP") : "Filter by Date"}
+                  {dateFilter && (
+                    <X className="ml-2 h-4 w-4" onClick={(e) => {
+                      e.stopPropagation();
+                      clearDateFilter();
+                    }} />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={dateFilter}
+                  onSelect={(date) => {
+                    setDateFilter(date);
+                    setIsCalendarOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -676,8 +817,8 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredContacts.length > 0 ? (
-                filteredContacts.map((contact) => (
+              {currentContacts.length > 0 ? (
+                currentContacts.map((contact) => (
                   <TableRow key={contact._id}>
                     {userRole !== "admin" && (
                       <TableCell>
@@ -724,32 +865,47 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                       )}
                     </TableCell>
                <TableCell>
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="sm">
-        <Eye className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <DropdownMenuItem 
-        onClick={() => handleStatusChange(contact._id, "COMPLETED")}
-        className={contact.status === "COMPLETED" ? "bg-green-50 text-green-700 font-medium" : ""}
-      >
-        <CheckCircle className={`mr-2 h-4 w-4 ${contact.status === "COMPLETED" ? "text-green-600" : "text-gray-400"}`} />
-        Mark as Completed
-        {contact.status === "COMPLETED" }
-      </DropdownMenuItem>
-      <DropdownMenuItem 
-        onClick={() => handleStatusChange(contact._id, "NOT COMPLETE")}
-        className={contact.status === "NOT COMPLETE" ? "bg-red-50 text-red-700 font-medium" : ""}
-      >
-        <XCircle className={`mr-2 h-4 w-4 ${contact.status === "NOT COMPLETE" ? "text-red-600" : "text-gray-400"}`} />
-        Mark as Not Complete
-        {contact.status === "NOT COMPLETE" }
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-</TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewDetails(contact)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+      
+                      {/*Hot Lead button */}
+                       <DropdownMenuItem 
+                         onClick={() => handleHotLeadChange(contact._id)}
+                         className={contact.status === "HOT_LEAD" ? "bg-orange-50 text-orange-700 font-medium" : ""}
+                        >
+                        <Flame className={`mr-2 h-4 w-4 ${contact.status === "HOT_LEAD" ? "text-orange-600" : "text-gray-400"}`} />
+                            Mark as Hot Lead
+                          {contact.status === "HOT_LEAD" && " ✓"}
+                       </DropdownMenuItem>
+      
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(contact._id, "COMPLETED")}
+                            className={contact.status === "COMPLETED" ? "bg-green-50 text-green-700 font-medium" : ""}
+                          >
+                            <CheckCircle className={`mr-2 h-4 w-4 ${contact.status === "COMPLETED" ? "text-green-600" : "text-gray-400"}`} />
+                            Mark as Completed
+                            {contact.status === "COMPLETED" }
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(contact._id, "NOT COMPLETE")}
+                            className={contact.status === "NOT COMPLETE" ? "bg-red-50 text-red-700 font-medium" : ""}
+                          >
+                            <XCircle className={`mr-2 h-4 w-4 ${contact.status === "NOT COMPLETE" ? "text-red-600" : "text-gray-400"}`} />
+                            Mark as Not Complete
+                            {contact.status === "NOT COMPLETE" }
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                </TableCell>
 
                   </TableRow>
                 ))
@@ -762,6 +918,77 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               )}
             </TableBody>
           </Table>
+          
+          {/* ADD: Pagination controls */}
+          {filteredContacts.length > contactsPerPage && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing {indexOfFirstContact + 1} to {Math.min(indexOfLastContact, filteredContacts.length)} of {filteredContacts.length} contacts
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={prevPage}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    // Show pages around current page
+                    let pageNum = i + 1;
+                    if (currentPage > 3 && totalPages > 5) {
+                      pageNum = currentPage - 2 + i;
+                      if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                    }
+                    if (pageNum < 1 || pageNum > totalPages) return null;
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => paginate(pageNum)}
+                        className="h-8 w-8 p-0"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                  {totalPages > 5 && (
+                    <span className="px-2 text-sm">...</span>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={nextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {selectedContact && (
+            <ContactPopup
+              open={openEditPopup}
+              onOpenChange={(open) => {
+                setOpenEditPopup(open);
+                if (!open) {
+                  setViewMode(false);
+                }
+              }}
+              contact={selectedContact}
+              viewMode={viewMode}
+            >
+              <Button className="hidden">View Contact Trigger</Button>
+            </ContactPopup>
+          )}
         </CardContent>
       </Card>
     </div>
