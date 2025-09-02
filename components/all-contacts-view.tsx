@@ -33,7 +33,7 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE" | "HOT_LEAD"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE" | "HOT LEAD"
   lastContact: string | Date
   isDeleted: boolean
   contactHistory?: ContactHistory[]
@@ -151,13 +151,13 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   try {
     const response = await api.post(endpoints.contact.updateStatus, {
       contactId,
-      status: "HOT_LEAD",
+      status: "HOT LEAD",
     });
 
     if (response.data?.success) {
       setAllContacts((prev) =>
         prev.map((c) =>
-          c._id === contactId ? { ...c, status: "HOT_LEAD" } : c
+          c._id === contactId ? { ...c, status: "HOT LEAD" } : c
         )
       );
       toast.success("Contact marked as Hot Lead!");
@@ -318,7 +318,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       return <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
     case "ASSIGNED":
       return <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
-    case "HOT_LEAD":
+    case "HOT LEAD":
       return <Badge variant="secondary" className="bg-orange-50 text-orange-600">Hot Lead</Badge>
     case "COMPLETED":
       return <Badge variant="secondary" className="bg-purple-50 text-purple-600">Completed</Badge>
@@ -880,11 +880,11 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                       {/*Hot Lead button */}
                        <DropdownMenuItem 
                          onClick={() => handleHotLeadChange(contact._id)}
-                         className={contact.status === "HOT_LEAD" ? "bg-orange-50 text-orange-700 font-medium" : ""}
+                         className={contact.status === "HOT LEAD" ? "bg-orange-50 text-orange-700 font-medium" : ""}
                         >
-                        <Flame className={`mr-2 h-4 w-4 ${contact.status === "HOT_LEAD" ? "text-orange-600" : "text-gray-400"}`} />
+                        <Flame className={`mr-2 h-4 w-4 ${contact.status === "HOT LEAD" ? "text-orange-600" : "text-gray-400"}`} />
                             Mark as Hot Lead
-                          {contact.status === "HOT_LEAD" && " ✓"}
+                          {contact.status === "HOT LEAD" && " ✓"}
                        </DropdownMenuItem>
       
                           <DropdownMenuItem 

@@ -136,7 +136,7 @@ export function StaffDashboard() {
 
         if (response.data.allContacts) {
           const hotLeadsData = response.data.allContacts
-            .filter((contact: Contact) => contact.status === "HOT_LEAD")
+            .filter((contact: Contact) => contact.status === "HOT LEAD")
             .slice(0, 3); // Show top 3 hot leads
           setHotLeads(hotLeadsData);
           setStats(prevStats => ({
