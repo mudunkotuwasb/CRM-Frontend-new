@@ -25,8 +25,6 @@ import {
   StickyNote,
   FileSpreadsheet,
   X,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react"
 import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
@@ -90,10 +88,11 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [viewMode, setViewMode] = useState(false);
   const [filterBy, setFilterBy] = useState<'name' | 'company' | 'email'>('name');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalContacts, setTotalContacts] = useState(0);
-  const pageSize = 10; //Number of contacts per page
+  const pageSize = 10; // Number of contacts per page
   
   
   //Calendar filter state
@@ -108,46 +107,46 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [csvPreview, setCsvPreview] = useState<CSVContact[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    const getContactsById = async () => {
-      setLoading(true);
-      setError(null);
+useEffect(() => {
+  const getContactsById = async () => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          console.log("Authentication error - please login again");
-          throw new Error("Authentication token missing");
-        }
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.log("Authentication error - please login again");
+        throw new Error("Authentication token missing");
+      }
 
-        const userId = localStorage.getItem("userId");
-        if (!userId) {
-          console.log("User ID is missing - please login again");
-          throw new Error("User ID missing");
-        }
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        console.log("User ID is missing - please login again");
+        throw new Error("User ID missing");
+      }
 
-        console.log("Fetching contacts for user ID:", userId);
-        console.log("Request payload:", { 
+      console.log("Fetching contacts for user ID:", userId);
+      console.log("Request payload:", { 
         adminId: userId,
-        page: currentPage, //Current page parameter
-        limit: pageSize    //Page size parameter
+        page: currentPage, // Add: Current page parameter
+        limit: pageSize    // Add: Page size parameter
       });
 
-      //Include pagination parameters in the request
+      // Add: Include pagination parameters in the request
       const response = await api.post(endpoints.contact.getContactsByAdminId, {
         adminId: userId,
         page: currentPage,
         limit: pageSize
       });
 
-        console.log("API Response:", response.data);
+      console.log("API Response:", response.data);
 
-        if (!response.data) {
-          console.log("No data received from CRM backend");
-          return;
-        }
+      if (!response.data) {
+        console.log("No data received from CRM backend");
+        return;
+      }
 
-      //Extract pagination info from response
+      // Add: Extract pagination info from response
       const { contacts, total, totalPages } = response.data;
 
       if (!contacts || contacts.length === 0) {
@@ -157,39 +156,39 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         return;
       }
 
-        const transformedContacts = contacts.map((contact: any) => ({
-          _id: contact._id,
-          name: contact.name || "no name",
-          company: contact.company || "no Company",
-          position: contact.position || "",
-          email: contact.email || "",
-          phone: contact.phone || "",
-          status: mapStatusToDisplay(contact.status),
-          lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
-          assignedTo: contact.assignedTo || "Unassigned",
-          uploadedBy: contact.uploadedBy || "System",
-          uploadDate: contact.uploadDate? new Date(contact.uploadDate): new Date(),
-          contactHistory: contact.contactHistory || [],
-        }));
+      const transformedContacts = contacts.map((contact: any) => ({
+        _id: contact._id,
+        name: contact.name || "no name",
+        company: contact.company || "no Company",
+        position: contact.position || "",
+        email: contact.email || "",
+        phone: contact.phone || "",
+        status: mapStatusToDisplay(contact.status),
+        lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
+        assignedTo: contact.assignedTo || "Unassigned",
+        uploadedBy: contact.uploadedBy || "System",
+        uploadDate: contact.uploadDate? new Date(contact.uploadDate): new Date(),
+        contactHistory: contact.contactHistory || [],
+      }));
 
-        setContacts(transformedContacts);
-        setFilteredContacts(transformedContacts);
+      setContacts(transformedContacts);
+      setFilteredContacts(transformedContacts);
       
-      //Set pagination metadata
-        setTotalContacts(total || 0);
-        setTotalPages(totalPages || 1);
-      } catch (error: any) {
-        console.error("Fetch error:", error);
-        const errorMessage =error.response?.data?.message ||error.message ||"Failed to load contacts";
-        setError(errorMessage);
-        toast.error(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Add: Set pagination metadata
+      setTotalContacts(total || 0);
+      setTotalPages(totalPages || 1);
+    } catch (error: any) {
+      console.error("Fetch error:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to load contacts";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    getContactsById();
-  }, [currentPage, refreshContacts]);
+  getContactsById();
+}, [currentPage, refreshContacts]);
 
 
 //add refresh contacts data function
@@ -202,8 +201,8 @@ const refreshContactsData = async () => {
     
     const response = await api.post(endpoints.contact.getContactsByAdminId, {
       adminId: userId,
-      page: currentPage, //Current page
-      limit: pageSize    //Page size
+      page: currentPage, // Add: Current page
+      limit: pageSize    // Add: Page size
     });
     
     if (response.data?.contacts) {
@@ -225,6 +224,7 @@ const refreshContactsData = async () => {
       setContacts(transformedContacts);
       setFilteredContacts(transformedContacts);
       
+      // Add: Update pagination metadata
       setTotalContacts(response.data.total || 0);
       setTotalPages(response.data.totalPages || 1);
     }
@@ -601,7 +601,7 @@ const handlePageChange = (newPage: number) => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">My Contact</h1>
+        <h1 className="text-3xl font-bold text-gray-900">My Contacts</h1>
         <div className="flex space-x-2">
           <Dialog open={csvImportOpen} onOpenChange={setCsvImportOpen}>
             <DialogTrigger asChild>
@@ -904,36 +904,6 @@ const handlePageChange = (newPage: number) => {
               )}
             </TableBody>
           </Table>
-
-          <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts} contacts
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
           {selectedContact && (
             <ContactPopup
               open={openEditPopup}
