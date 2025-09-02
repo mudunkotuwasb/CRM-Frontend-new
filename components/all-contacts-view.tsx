@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X, Calendar as CalendarIcon, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X, Calendar as CalendarIcon, MoreHorizontal } from "lucide-react"
 import api from "@/lib/api"
 import endpoints from "@/lib/endpoints"
 import { useRouter } from "next/navigation"
@@ -81,10 +81,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   //State for calendar date filter
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
-
-  // ADD: Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [contactsPerPage] = useState(10)  
 
   // CSV Import states
   const [csvImportOpen, setCsvImportOpen] = useState(false)
@@ -197,30 +193,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
     
     return matchesSearch
   });
-
-
-  // ADD: Pagination logic
-  const indexOfLastContact = currentPage * contactsPerPage
-  const indexOfFirstContact = indexOfLastContact - contactsPerPage
-  const currentContacts = filteredContacts.slice(indexOfFirstContact, indexOfLastContact)
-  const totalPages = Math.ceil(filteredContacts.length / contactsPerPage)
-
-  // ADD: Change page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber)
-
-  // ADD: Go to next page
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1)
-    }
-  }
-
-  // ADD: Go to previous page
-  const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
-    }
-  }
 
   //Clear date filter
   const clearDateFilter = () => {
@@ -817,8 +789,8 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {currentContacts.length > 0 ? (
-                currentContacts.map((contact) => (
+              {filteredContacts.length > 0 ? (
+                filteredContacts.map((contact) => (
                   <TableRow key={contact._id}>
                     {userRole !== "admin" && (
                       <TableCell>
@@ -918,61 +890,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               )}
             </TableBody>
           </Table>
-          
-          {/* ADD: Pagination controls */}
-          {filteredContacts.length > contactsPerPage && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {indexOfFirstContact + 1} to {Math.min(indexOfLastContact, filteredContacts.length)} of {filteredContacts.length} contacts
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={prevPage}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <div className="flex items-center space-x-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    // Show pages around current page
-                    let pageNum = i + 1;
-                    if (currentPage > 3 && totalPages > 5) {
-                      pageNum = currentPage - 2 + i;
-                      if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                    }
-                    if (pageNum < 1 || pageNum > totalPages) return null;
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => paginate(pageNum)}
-                        className="h-8 w-8 p-0"
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                  {totalPages > 5 && (
-                    <span className="px-2 text-sm">...</span>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
           
           {selectedContact && (
             <ContactPopup
