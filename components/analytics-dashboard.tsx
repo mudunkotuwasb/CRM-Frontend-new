@@ -41,6 +41,29 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
     teamSize: 0,
   })
 
+  // Function to fetch hot leads count
+  const fetchHotLeadsCount = useCallback(async () => {
+    try {
+      const response = await api.get(endpoints.contact.getAllContacts, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (response.data.allContacts) {
+        const hotLeadsData = response.data.allContacts
+          .filter((contact: any) => contact.status === "HOT LEAD");
+        
+        return hotLeadsData.length;
+      }
+      return 0;
+    } catch (error) {
+      console.error("Error fetching hot leads:", error);
+      return 0;
+    }
+  }, []);
+
   const fetchContacts = useCallback(async () => {
     try {
       setLoading(true)
@@ -133,12 +156,15 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
         return uploadDate > threeDaysAgo
       }).length
 
+      // Fetch the actual hot leads count (status = "HOT LEAD")
+      const actualHotLeadsCount = await fetchHotLeadsCount();
+
       setPersonalStats({
         callsToday,
         callsThisWeek,
         callsThisMonth,
         conversionRate,
-        hotLeads,
+        hotLeads: actualHotLeadsCount,
         conversions,
         weeklyCalls
       })
@@ -174,7 +200,7 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin])
+  }, [isAdmin, fetchHotLeadsCount])
 
   useEffect(() => {
     fetchContacts()
@@ -273,7 +299,7 @@ export function AnalyticsDashboard({ userRole }: AnalyticsDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{personalStats.hotLeads}</div>
-            <p className="text-xs text-muted-foreground">Last 3 days</p>
+            <p className="text-xs text-muted-foreground">Active hot leads</p>
           </CardContent>
         </Card>
       </div>
