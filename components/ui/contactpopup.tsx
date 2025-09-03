@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus } from "lucide-react"
@@ -44,6 +44,7 @@ interface ContactPopupProps {
   onOpenChange?: (open: boolean) => void;
   contact?: Contact;
   viewMode?: boolean;
+  onContactUpdated?: () => void;
 }
 
 // Read-only field component
@@ -81,10 +82,12 @@ export function ContactPopup({
   onOpenChange,
   contact,
   viewMode = false,
+  onContactUpdated,
 }: ContactPopupProps) {
   const router = useRouter()
   const [_open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [currentContact, setCurrentContact] = useState<Contact | undefined>(contact)
   const [formData, setFormData] = useState({
     name: contact?.name || "",
     company: contact?.company || "",
@@ -102,6 +105,11 @@ export function ContactPopup({
   })
   const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false)
   const [historyToDelete, setHistoryToDelete] = useState<{contactId: string, historyId: number} | null>(null)
+
+  // Update currentContact when contact prop changes
+  useEffect(() => {
+    setCurrentContact(contact)
+  }, [contact])
 
   const validateForm = () => {
     const newErrors = {
@@ -246,6 +254,11 @@ export function ContactPopup({
         });
       }
 
+      // Call the onContactUpdated callback if provided
+      if (onContactUpdated) {
+        onContactUpdated();
+      }
+
       // Close the popup
       if (onOpenChange) {
         onOpenChange(false);
@@ -282,32 +295,39 @@ export function ContactPopup({
   };
 
   const handleDeleteHistory = async () => {
-    if (!historyToDelete || !contact?._id) return;
+    if (!historyToDelete || !currentContact?._id) return;
 
     try {
       console.log("Deleting history:", {
-        contactId: contact._id,
+        contactId: currentContact._id,
         historyId: historyToDelete.historyId,
         endpoint: endpoints.contact.deleteContactHistory(
-          contact._id,
+          currentContact._id,
           historyToDelete.historyId
         ),
       });
 
       const response = await api.delete(
-        endpoints.contact.deleteContactHistory(contact._id, historyToDelete.historyId)
+        endpoints.contact.deleteContactHistory(currentContact._id, historyToDelete.historyId)
       );
 
       if (response.data.success) {
         toast.success("Contact history deleted successfully");
-        // Refresh the data
-        router.refresh();
-        if (onOpenChange) {
-          onOpenChange(false);
-          setTimeout(() => onOpenChange(true), 100);
-        } else {
-          setOpen(false);
-          setTimeout(() => setOpen(true), 100);
+        
+        // Update the current contact by removing the deleted history
+        if (currentContact.contactHistory) {
+          const updatedContact = {
+            ...currentContact,
+            contactHistory: currentContact.contactHistory.filter(
+              history => history.id !== historyToDelete.historyId
+            )
+          };
+          setCurrentContact(updatedContact);
+        }
+        
+        // Call the onContactUpdated callback if provided
+        if (onContactUpdated) {
+          onContactUpdated();
         }
       } else {
         throw new Error(
@@ -333,12 +353,13 @@ export function ContactPopup({
       }
     } finally {
       setHistoryToDelete(null);
+      setDeleteHistoryConfirmOpen(false);
     }
   };
 
-    const confirmDeleteHistory = (historyId: number) => {
-    if (!contact?._id) return;
-    setHistoryToDelete({ contactId: contact._id, historyId });
+  const confirmDeleteHistory = (historyId: number) => {
+    if (!currentContact?._id) return;
+    setHistoryToDelete({ contactId: currentContact._id, historyId });
     setDeleteHistoryConfirmOpen(true);
   };
 
@@ -361,13 +382,13 @@ export function ContactPopup({
           <DialogTitle className="text-xl font-semibold text-gray-800">
             {viewMode
               ? "Contact Details"
-              : contact
+              : currentContact
               ? "Edit Contact"
               : "Add New Contact"}
           </DialogTitle>
           {!viewMode && (
             <p className="text-sm text-gray-500 mt-1">
-              {contact
+              {currentContact
                 ? "Update the contact information"
                 : "Add a new contact to your database"}
             </p>
@@ -383,14 +404,14 @@ export function ContactPopup({
                     Personal Information
                   </h3>
                   <div className="space-y-4">
-                    <ReadOnlyField label="Name" value={contact?.name || ""} />
+                    <ReadOnlyField label="Name" value={currentContact?.name || ""} />
                     <ReadOnlyField
                       label="Position"
-                      value={contact?.position || ""}
+                      value={currentContact?.position || ""}
                     />
                     <ReadOnlyField
                       label="Status"
-                      value={contact?.status || ""}
+                      value={currentContact?.status || ""}
                     />
                   </div>
                 </div>
@@ -404,10 +425,10 @@ export function ContactPopup({
                   <div className="space-y-4">
                     <ReadOnlyField
                       label="Company"
-                      value={contact?.company || ""}
+                      value={currentContact?.company || ""}
                     />
-                    <ReadOnlyField label="Email" value={contact?.email || ""} />
-                    <ReadOnlyField label="Phone" value={contact?.phone || ""} />
+                    <ReadOnlyField label="Email" value={currentContact?.email || ""} />
+                    <ReadOnlyField label="Phone" value={currentContact?.phone || ""} />
                   </div>
                 </div>
               </div>
@@ -421,20 +442,20 @@ export function ContactPopup({
                 <ReadOnlyField
                   label="Last Contact"
                   value={
-                    contact?.lastContact
-                      ? new Date(contact.lastContact).toLocaleDateString()
+                    currentContact?.lastContact
+                      ? new Date(currentContact.lastContact).toLocaleDateString()
                       : "Never"
                   }
                 />
               </div>
             </div>
-            {contact?.contactHistory && contact.contactHistory.length > 0 && (
+            {currentContact?.contactHistory && currentContact.contactHistory.length > 0 && (
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <h3 className="font-medium text-gray-500 text-sm mb-4 uppercase tracking-wide">
                   Contact History
                 </h3>
                 <div className="space-y-3">
-                  {contact.contactHistory.map((history) => (
+                  {currentContact.contactHistory.map((history) => (
                     <div
                       key={history.id}
                       className="bg-white p-4 rounded-md border shadow-sm relative"
@@ -687,9 +708,9 @@ export function ContactPopup({
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    {contact ? "Updating..." : "Adding..."}
+                    {currentContact ? "Updating..." : "Adding..."}
                   </span>
-                ) : contact ? (
+                ) : currentContact ? (
                   "Update Contact"
                 ) : (
                   "Add Contact"
