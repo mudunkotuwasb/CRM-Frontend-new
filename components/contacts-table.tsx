@@ -18,13 +18,15 @@ import {
   Mail,
   Filter,
   MessageSquare,
-  Calendar,
+  Calendar as CalendarIcon,
   Trash2,
   Eye,
   Edit,
   StickyNote,
   FileSpreadsheet,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import api from "@/lib/api";
 import endpoints from "@/lib/endpoints";
@@ -34,6 +36,11 @@ import { NotePopup } from "@/components/ui/note-popup"
 import { ScheduleCallPopup } from "@/components/ui/schedule-call-popup"
 import Papa from "papaparse"
 import axios from "axios"
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
+
 
 interface Contact {
   _id: string
@@ -85,6 +92,17 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [viewMode, setViewMode] = useState(false);
   const [filterBy, setFilterBy] = useState<'name' | 'company' | 'email'>('name');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalContacts, setTotalContacts] = useState(0);
+  const pageSize = 10; //Number of contacts per page
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null)
+  
+  
+  //Calendar filter state
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
   // CSV Import states
   const [csvImportOpen, setCsvImportOpen] = useState(false)
@@ -113,11 +131,18 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
         }
 
         console.log("Fetching contacts for user ID:", userId);
-        console.log("Request payload:", { adminId: userId });
+        console.log("Request payload:", { 
+        adminId: userId,
+        page: currentPage, //Current page parameter
+        limit: pageSize    //Page size parameter
+      });
 
-        const response = await api.post(endpoints.contact.getContactsByAdminId, {
-          adminId: userId,
-        });
+      //Include pagination parameters in the request
+      const response = await api.post(endpoints.contact.getContactsByAdminId, {
+        adminId: userId,
+        page: currentPage,
+        limit: pageSize
+      });
 
         console.log("API Response:", response.data);
 
@@ -126,16 +151,17 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
           return;
         }
 
-        if (!response.data.contacts || response.data.contacts.length === 0) {
-          toast.info("No contacts found for your account");
-          setContacts([]);
-          setFilteredContacts([]);
-          return;
-        }
+      //Extract pagination info from response
+      const { contacts, total, totalPages } = response.data;
 
-        const contactsData = response.data.contacts;
+      if (!contacts || contacts.length === 0) {
+        toast.info("No contacts found for your account");
+        setContacts([]);
+        setFilteredContacts([]);
+        return;
+      }
 
-        const transformedContacts = contactsData.map((contact: any) => ({
+        const transformedContacts = contacts.map((contact: any) => ({
           _id: contact._id,
           name: contact.name || "no name",
           company: contact.company || "no Company",
@@ -152,6 +178,10 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
         setContacts(transformedContacts);
         setFilteredContacts(transformedContacts);
+      
+      //Set pagination metadata
+        setTotalContacts(total || 0);
+        setTotalPages(totalPages || 1);
       } catch (error: any) {
         console.error("Fetch error:", error);
         const errorMessage =error.response?.data?.message ||error.message ||"Failed to load contacts";
@@ -163,17 +193,108 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
     };
 
     getContactsById();
-  }, []);
+  }, [currentPage, refreshContacts]);
 
-  const handleDeleteContact = async (contact: Contact) => {
-    if (!window.confirm(`Are you sure you want to delete ${contact.name} from ${contact.company}? This action cannot be undone.`)) {
-      return;
+
+//add refresh contacts data function
+const refreshContactsData = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("userId");
+    
+    if (!token || !userId) return;
+    
+    const response = await api.post(endpoints.contact.getContactsByAdminId, {
+      adminId: userId,
+      page: currentPage, //Current page
+      limit: pageSize    //Page size
+    });
+    
+    if (response.data?.contacts) {
+      const transformedContacts = response.data.contacts.map((contact: any) => ({
+        _id: contact._id,
+        name: contact.name || "no name",
+        company: contact.company || "no Company",
+        position: contact.position || "",
+        email: contact.email || "",
+        phone: contact.phone || "",
+        status: mapStatusToDisplay(contact.status),
+        lastContact: contact.lastContact ? new Date(contact.lastContact) : new Date(0),
+        assignedTo: contact.assignedTo || "Unassigned",
+        uploadedBy: contact.uploadedBy || "System",
+        uploadDate: contact.uploadDate? new Date(contact.uploadDate): new Date(),
+        contactHistory: contact.contactHistory || [],
+      }));
+      
+      setContacts(transformedContacts);
+      setFilteredContacts(transformedContacts);
+      
+      setTotalContacts(response.data.total || 0);
+      setTotalPages(response.data.totalPages || 1);
     }
+  } catch (error) {
+    console.error("Error refreshing contacts:", error);
+  }
+};
+
+// useEffect to watch for refreshContacts changes
+useEffect(() => {
+  if (refreshContacts) {
+    refreshContactsData();
+    setRefreshContacts(false);
+  }
+}, [refreshContacts]);
+
+
+  //Clear date filter function
+  const clearDateFilter = () => {
+    setDateFilter(undefined)
+  }
+
+  //Filter contacts based on search term and date filter
+  useEffect(() => {
+    let filtered = contacts;
+    
+    //Apply search filter
+    if (searchTerm.trim() !== "") {
+      filtered = filtered.filter(contact =>
+        contact[filterBy].toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    //Apply date filter
+    if (dateFilter) {
+      filtered = filtered.filter(contact => {
+        if (!contact.lastContact) return false;
+        
+        const contactDate = new Date(contact.lastContact);
+        const filterDate = new Date(dateFilter);
+        
+        return (
+          contactDate.getDate() === filterDate.getDate() &&
+          contactDate.getMonth() === filterDate.getMonth() &&
+          contactDate.getFullYear() === filterDate.getFullYear()
+        );
+      });
+    }
+    
+    setFilteredContacts(filtered);
+  }, [searchTerm, contacts, filterBy, dateFilter]);
+
+  // Add: Function to handle page changes
+const handlePageChange = (newPage: number) => {
+  if (newPage >= 1 && newPage <= totalPages) {
+    setCurrentPage(newPage);
+  }
+};
+
+  const handleDeleteContact = async () => {
+    if (!contactToDelete) return;
 
     try {
-      console.log(`Deleting contact with ID: ${contact._id}`);
-      
-      const response = await api.delete(endpoints.contact.deleteContact(contact._id), {
+      console.log(`Deleting contact with ID: ${contactToDelete._id}`);
+    
+        const response = await api.delete(endpoints.contact.deleteContact(contactToDelete._id), {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -181,28 +302,29 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
       });
 
       if (response.data.success) {
-        toast.success("Contact deleted successfully");
-        setContacts(prev => prev.filter(c => c._id !== contact._id));
-        setFilteredContacts(prev => prev.filter(c => c._id !== contact._id));
+          toast.success("Contact deleted successfully");
+          setContacts(prev => prev.filter(c => c._id !== contactToDelete._id));
+          setFilteredContacts(prev => prev.filter(c => c._id !== contactToDelete._id));
       } else {
         throw new Error(response.data.message || "Failed to delete contact");
       }
     } catch (error: any) {
       console.error("Delete error details:", error);
-      
       if (error.response) {
         console.error("Server response:", error.response.data);
         console.error("Status code:", error.response.status);
         console.error("Error message:", error.response.data?.message);
         console.error("Error details:", error.response.data?.error);
       }
-      
+    
       const errorMessage = error.response?.data?.message || 
                            error.response?.data?.error || 
                            error.message || 
                            "Failed to delete contact";
-      
+    
       toast.error(`Delete failed: ${errorMessage}`);
+    } finally {
+      setContactToDelete(null);
     }
   }
 
@@ -267,26 +389,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
 
   const filterContacts = (type: 'name' | 'company' | 'email') => {
     setFilterBy(type);
-    if (searchTerm.trim() === "") {
-      setFilteredContacts(contacts);
-    } else {
-      const filtered = contacts.filter(contact =>
-        contact[type].toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredContacts(filtered);
-    }
   };
-
-  useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredContacts(contacts);
-    } else {
-      const filtered = contacts.filter(contact =>
-      contact[filterBy].toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredContacts(filtered);
-    }
-  }, [searchTerm, contacts, filterBy]);
 
   // CSV Import Functions
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -638,6 +741,34 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                 className="pl-10"
               />
             </div>
+            
+            {/*Calendar filter for Last Contact date */}
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter ? format(dateFilter, "PPP") : "Filter by Last Contact"}
+                  {dateFilter && (
+                    <X className="ml-2 h-4 w-4" onClick={(e) => {
+                      e.stopPropagation();
+                      clearDateFilter();
+                    }} />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={dateFilter}
+                  onSelect={(date) => {
+                    setDateFilter(date);
+                    setIsCalendarOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -669,7 +800,7 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
             <div className="flex space-x-2">
               <ScheduleCallPopup contacts={filteredContacts}>
                 <Button size="sm" variant="outline">
-                  <Calendar className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="mr-2 h-4 w-4" />
                   Schedule Calls
                 </Button>
               </ScheduleCallPopup>
@@ -697,36 +828,37 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredContacts.map((contact) => (
-                <TableRow key={contact._id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{contact.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {contact.position}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>{contact.company}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center text-sm">
-                        <Phone className="mr-2 h-3 w-3" />
-                        {contact.phone}
+              {filteredContacts.length > 0 ? (
+                filteredContacts.map((contact) => (
+                  <TableRow key={contact._id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{contact.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {contact.position}
+                        </p>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <Mail className="mr-2 h-3 w-3" />
-                        {contact.email}
+                    </TableCell>
+                    <TableCell>{contact.company}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center text-sm">
+                          <Phone className="mr-2 h-3 w-3" />
+                          {contact.phone}
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <Mail className="mr-2 h-3 w-3" />
+                          {contact.email}
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(contact.status)}>
-                      {contact.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(contact.lastContact)}</TableCell> 
-                  <TableCell>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(contact.status)}>
+                        {contact.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(contact.lastContact)}</TableCell> 
+                    <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
@@ -755,7 +887,11 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                         </NotePopup>
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => handleDeleteContact(contact)}
+                          onClick={(e) => {
+                          e.preventDefault();
+                          setContactToDelete(contact);
+                          setDeleteConfirmOpen(true);
+                          }}
                           className="text-red-600 focus:text-red-600"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -765,9 +901,46 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    No contacts found
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
+
+          <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalContacts)} of {totalContacts} contacts
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
           {selectedContact && (
             <ContactPopup
               open={openEditPopup}
@@ -784,6 +957,16 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
               <Button className="hidden">Edit Contact Trigger</Button>
             </ContactPopup>
           )}
+
+          <ConfirmationDialog
+            open={deleteConfirmOpen}
+            onOpenChange={setDeleteConfirmOpen}
+            title="Delete Contact"
+            description={`Are you sure you want to delete ${contactToDelete?.name} from ${contactToDelete?.company}? This action cannot be undone.`}
+            onConfirm={handleDeleteContact}
+            confirmText="Delete"
+            variant="destructive"
+          />
         </CardContent>
       </Card>
     </div>

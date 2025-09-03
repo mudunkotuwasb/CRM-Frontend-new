@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import axios from "axios";
 import { Badge } from "@/components/ui/badge";
 import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns";
+import { Flame, Mail } from "lucide-react"
+
 
 //Define Contact interface matching schema
 interface Contact {
@@ -48,7 +50,7 @@ export function StaffDashboard() {
     callsToday: 0,
     callsThisWeek: 0,
     callsThisMonth: 189,
-    hotLeads: 8,
+    hotLeads: 0 ,
     conversionsThisMonth: 0,
     assignedContacts: 156,
     scheduledCallsToday: 0,
@@ -72,6 +74,7 @@ export function StaffDashboard() {
   const currentYear = currentDate.getFullYear();
   const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>([]);
   const [upcomingCalls, setUpcomingCalls] = useState<ScheduledCall[]>([]);
+  const [hotLeads, setHotLeads] = useState<Contact[]>([]);
 
   //Fetch scheduled calls from backend
   const fetchScheduledCalls = async () => {
@@ -96,7 +99,7 @@ export function StaffDashboard() {
           new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
         );
         
-        setUpcomingCalls(upcoming.slice(0, 5)); //Show 5 upcoming calls
+        setUpcomingCalls(upcoming.slice(0, 3)); //Show 3 upcoming calls
 
         //Calculate stats for scheduled calls
         const totalScheduledCalls = calls.filter((call: ScheduledCall) => 
@@ -120,6 +123,34 @@ export function StaffDashboard() {
       toast.error(errorMessage);
     }
   };
+
+  useEffect(() => {
+    const filterHotLeads = async () => {
+      try {
+        const response = await api.get(endpoints.contact.getAllContacts, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        if (response.data.allContacts) {
+          const hotLeadsData = response.data.allContacts
+            .filter((contact: Contact) => contact.status === "HOT LEAD")
+            .slice(0, 3); // Show top 3 hot leads
+          setHotLeads(hotLeadsData);
+          setStats(prevStats => ({
+            ...prevStats,
+            hotLeads: hotLeadsData.length
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching hot leads:", error);
+      }
+    };
+
+    filterHotLeads();
+  }, []);
 
   //Delete scheduled call
   const deleteScheduledCall = async (callId: string) => {
@@ -260,6 +291,20 @@ export function StaffDashboard() {
     }
   };
 
+  // Function to format phone number
+  const formatPhoneNumber = (phone: string) => {
+    // Remove all non-digit characters
+    const cleaned = phone.replace(/\D/g, '');
+    
+    // Check if the number has 10 digits
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    }
+    
+    // Return original if format doesn't match expected pattern
+    return phone;
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -275,7 +320,7 @@ export function StaffDashboard() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Calls Made</CardTitle>
@@ -302,6 +347,17 @@ export function StaffDashboard() {
           </CardContent>
         </Card>
 
+         <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Hot Leads</CardTitle>
+          <Flame className="h-4 w-4 text-orange-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.hotLeads}</div>
+          <p className="text-xs text-muted-foreground">Active hot leads</p>
+        </CardContent>
+      </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Conversions</CardTitle>
@@ -314,86 +370,167 @@ export function StaffDashboard() {
         </Card>
       </div>
 
-      {/* Upcoming Calls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Calendar className="h-5 w-5 mr-2 text-blue-500" />
-            Upcoming Scheduled Calls
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {upcomingCalls.length > 0 ? (
-            <div className="space-y-4">
-              {upcomingCalls.map((call: ScheduledCall) => (
-                <div
-                  key={call._id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-blue-100 p-2 rounded-full">
-                        <Phone className="h-4 w-4 text-blue-600" />
+      {/* Hot Leads and Upcoming Calls Side by Side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Hot Leads Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center text-lg">
+              <Flame className="h-5 w-5 mr-2 text-orange-500" />
+              Hot Leads ({hotLeads.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {hotLeads.length > 0 ? (
+              <div className="space-y-3">
+                {hotLeads.map((lead: Contact) => (
+                  <div
+                    key={lead._id}
+                    className="p-3 border rounded-lg hover:bg-orange-50 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="bg-orange-100 p-1 rounded-full">
+                            <Flame className="h-3 w-3 text-orange-600" />
+                          </div>
+                          <p className="font-medium text-sm">{lead.name}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center mb-1">
+                          <Building className="h-3 w-3 mr-1" />
+                          {lead.company}
+                        </p>
+                        {lead.position && (
+                          <p className="text-xs text-muted-foreground flex items-center mb-1">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {lead.position}
+                          </p>
+                        )}
+                        <div className="flex flex-col space-y-1 mt-2">
+                          <div className="flex items-center">
+                            <Phone className="h-3 w-3 mr-1 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              {formatPhoneNumber(lead.phone)}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            <Mail className="h-3 w-3 mr-1 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground truncate">
+                              {lead.email}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-2">
+                          <a 
+                            href={`tel:${lead.phone}`}
+                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                          >
+                            <Phone className="h-3 w-3 mr-1" />
+                            Call
+                          </a>
+                          <a 
+                            href={`mailto:${lead.email}`}
+                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                          >
+                            <Mail className="h-3 w-3 mr-1" />
+                            Email
+                          </a>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{call.contactId.name}</p>
-                        <p className="text-sm text-muted-foreground flex items-center">
+                      <Badge className="bg-orange-100 text-orange-800 text-xs">
+                        Hot Lead
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-32 text-center">
+                <Flame className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground text-sm">No hot leads found</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Mark contacts as Hot Leads to see them here
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Calls Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center text-lg">
+              <Calendar className="h-5 w-5 mr-2 text-blue-500" />
+              Upcoming Calls ({upcomingCalls.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {upcomingCalls.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingCalls.map((call: ScheduledCall) => (
+                  <div
+                    key={call._id}
+                    className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="bg-blue-100 p-1 rounded-full">
+                            <Phone className="h-3 w-3 text-blue-600" />
+                          </div>
+                          <p className="font-medium text-sm">{call.contactId.name}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center mb-1">
                           <Building className="h-3 w-3 mr-1" />
                           {call.contactId.company}
-                          {call.contactId.position && (
-                            <>
-                              <MapPin className="h-3 w-3 mx-2" />
-                              {call.contactId.position}
-                            </>
-                          )}
                         </p>
-                        <p className="text-sm text-muted-foreground flex items-center mt-1">
+                        <p className="text-xs text-muted-foreground flex items-center mb-1">
                           <Clock className="h-3 w-3 mr-1" />
                           {formatScheduledDate(call.scheduledDate)}
                         </p>
                         {call.notes && (
-                          <p className="text-sm text-muted-foreground mt-1 italic">
+                          <p className="text-xs text-muted-foreground mt-1 italic">
                             "{call.notes}"
                           </p>
                         )}
+                        <div className="flex items-center space-x-2 mt-2">
+                          <a 
+                            href={`tel:${call.contactId.phone}`}
+                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                          >
+                            <Phone className="h-3 w-3 mr-1" />
+                            {formatPhoneNumber(call.contactId.phone)}
+                          </a>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteScheduledCall(call._id)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-100 text-xs h-6 px-2"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </div>
                       </div>
+                      <Badge className={getStatusColor(call.status) + " text-xs"}>
+                        {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end space-y-2">
-                    <Badge className={getStatusColor(call.status)}>
-                      {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
-                    </Badge>
-                    <a 
-                      href={`tel:${call.contactId.phone}`}
-                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                    >
-                      <Phone className="h-3 w-3 mr-1" />
-                      {call.contactId.phone}
-                    </a>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteScheduledCall(call._id)}
-                      className="text-red-600 hover:text-red-800 hover:bg-red-100"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-32 text-center">
-              <Calendar className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">No upcoming scheduled calls</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Schedule calls from the Contacts page to see them here
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-32 text-center">
+                <Calendar className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground text-sm">No upcoming scheduled calls</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Schedule calls from the Contacts page to see them here
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Recent Contacts and Completed Contacts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

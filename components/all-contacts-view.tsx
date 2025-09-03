@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X } from "lucide-react"
+import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X, Calendar as CalendarIcon, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import api from "@/lib/api"
 import endpoints from "@/lib/endpoints"
 import { useRouter } from "next/navigation"
@@ -18,6 +18,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { CheckCircle, XCircle } from "lucide-react"
 import Papa from "papaparse"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
+import { Calendar } from "@/components/ui/calendar" 
+import { Flame } from "lucide-react"
 
 interface Contact {
   _id: string
@@ -29,9 +33,21 @@ interface Contact {
   uploadedBy:  string
   uploadDate: string | Date
   assignedTo: string
-  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE"
+  status: "ASSIGNED" | "UNASSIGNED" | "COMPLETED" | "NOT COMPLETE" | "HOT LEAD"
   lastContact: string | Date
   isDeleted: boolean
+  contactHistory?: ContactHistory[]
+}
+
+//Define ContactHistory interface
+interface ContactHistory {
+  id: number
+  date: string
+  contactedBy: string
+  notes: string
+  outcome: string
+  nextAction?: string
+  scheduledDate?: string
 }
 
 interface AllContactsViewProps {
@@ -52,6 +68,15 @@ interface CSVContact {
   phone: string
 }
 
+//Pagination interface
+interface PaginationInfo {
+  currentPage: number
+  totalPages: number
+  totalContacts: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
 export function AllContactsView({ userRole }: AllContactsViewProps) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
@@ -62,6 +87,10 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [userDataMap, setUserDataMap] = useState<Record<string, string>>({});
   const [filterType, setFilterType] = useState<'name' | 'company' | 'email'>('name');
   
+  //State for calendar date filter
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+
   // CSV Import states
   const [csvImportOpen, setCsvImportOpen] = useState(false)
   const [csvData, setCsvData] = useState<CSVContact[]>([])
@@ -70,16 +99,44 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [csvPreview, setCsvPreview] = useState<CSVContact[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const response = await api.get(endpoints.contact.getAllContacts)
-        if (!response.data?.allContacts) {
-          console.log("No contacts data found in response")
-        }
+  //State for contact details view
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [openEditPopup, setOpenEditPopup] = useState(false)
+  const [viewMode, setViewMode] = useState(false)
+
+  //Pagination state
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalContacts: 0,
+    hasNext: false,
+    hasPrev: false
+  })
+
+  //Fetch contacts with pagination
+  const fetchContacts = async (page: number = 1, search: string = searchTerm, filter: string = filterType, date: Date | undefined = dateFilter) => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      //Build query parameters for pagination and filtering
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+        search,
+        filterType: filter
+      })
+      
+      //Add date filter
+      if (date) {
+        params.append('dateFilter', date.toISOString())
+      }
+      
+      const response = await api.get(`${endpoints.contact.getAllContacts}?${params}`)
+      
+      if (!response.data?.allContacts) {
+        console.log("No contacts data found in response")
+      }
 
         const transformedContacts = response.data.allContacts.map((contact: any) => ({
           _id: contact._id,
@@ -93,10 +150,16 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
           assignedTo: contact.assignedTo || "Unassigned",
           status: contact.status || "UNASSIGNED",
           lastContact: contact.lastContact || new Date(0),
-          isDeleted: contact.isDeleted || false
+          isDeleted: contact.isDeleted || false,
+          contactHistory: contact.contactHistory || [],
         }))
 
-        setAllContacts(transformedContacts)
+       setAllContacts(transformedContacts)
+      
+      //Update pagination info
+      if (response.data.pagination) {
+        setPagination(response.data.pagination)
+      }
       } catch (error) {
         console.error("Failed to fetch contacts:", error)
         setError("Failed to load contacts. Please try again.")
@@ -114,15 +177,81 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       }
     }
 
-    fetchContacts()
+  useEffect(() => {
+    fetchContacts(1)
   }, [router])
+
+  //Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchContacts(newPage)
+    }
+  }
+
+  //Handle search with debounce
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchContacts(1, searchTerm, filterType, dateFilter)
+    }, 500)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchTerm, filterType, dateFilter])
+
+  const handleHotLeadChange = async (contactId: string) => {
+  try {
+    const response = await api.post(endpoints.contact.updateStatus, {
+      contactId,
+      status: "HOT LEAD",
+    });
+
+    if (response.data?.success) {
+      setAllContacts((prev) =>
+        prev.map((c) =>
+          c._id === contactId ? { ...c, status: "HOT LEAD" } : c
+        )
+      );
+      toast.success("Contact marked as Hot Lead!");
+    } else {
+      throw new Error(response.data?.message || "Failed to mark as Hot Lead");
+    }
+  } catch (error) {
+    console.error("Hot Lead update error:", error);
+    toast.error("Failed to mark as Hot Lead. Please try again.");
+  }
+};
+
+  //Function to handle view details
+  const handleViewDetails = (contact: Contact) => {
+    setSelectedContact(contact)
+    setViewMode(true)
+    setOpenEditPopup(true)
+  }
 
   const displayContacts = allContacts.filter(contact => !contact.isDeleted)
   const unassignedContacts = displayContacts.filter(contact => contact.status === "UNASSIGNED")
 
-  const filteredContacts = displayContacts.filter(contact => 
-    contact[filterType].toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredContacts = displayContacts.filter(contact => {
+  const matchesSearch = contact[filterType].toLowerCase().includes(searchTerm.toLowerCase())
+    
+    //If date filter is set, check if upload date matches
+    if (dateFilter) {
+      const uploadDate = new Date(contact.uploadDate)
+      const filterDate = new Date(dateFilter)
+      
+      return matchesSearch && 
+             uploadDate.getDate() === filterDate.getDate() &&
+             uploadDate.getMonth() === filterDate.getMonth() &&
+             uploadDate.getFullYear() === filterDate.getFullYear()
+    }
+    
+    return matchesSearch
+  });
+
+  //Clear date filter
+  const clearDateFilter = () => {
+    setDateFilter(undefined)
+    fetchContacts(1, searchTerm, filterType, undefined)
+  }
 
   const handleSelectContact = (contactId: string, checked: boolean) => {
     if (checked) {
@@ -210,10 +339,21 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
 
   const getStatusBadge = (contact: Contact) => {
-    return contact.status === "UNASSIGNED" 
-      ? <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
-      : <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+  switch (contact.status) {
+    case "UNASSIGNED":
+      return <Badge variant="secondary" className="bg-blue-50 text-blue-600">Unassigned</Badge>
+    case "ASSIGNED":
+      return <Badge variant="secondary" className="bg-green-50 text-green-600">Assigned</Badge>
+    case "HOT LEAD":
+      return <Badge variant="secondary" className="bg-orange-50 text-orange-600">Hot Lead</Badge>
+    case "COMPLETED":
+      return <Badge variant="secondary" className="bg-purple-50 text-purple-600">Completed</Badge>
+    case "NOT COMPLETE":
+      return <Badge variant="secondary" className="bg-red-50 text-red-600">Not Complete</Badge>
+    default:
+      return <Badge variant="secondary" className="bg-gray-50 text-gray-600">{contact.status}</Badge>
   }
+}
 
   const formatDate = (date: string | Date) => {
     if (!date) return "Never"
@@ -391,24 +531,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
       // Refresh contacts list if any were successful
       if (successCount > 0) {
-        const refreshResponse = await api.get(endpoints.contact.getAllContacts)
-        if (refreshResponse.data?.allContacts) {
-          const transformedContacts = refreshResponse.data.allContacts.map((contact: any) => ({
-            _id: contact._id,
-            name: contact.Name || contact.name,
-            company: contact.company,
-            position: contact.position,
-            email: contact.contactInfo?.email || contact.email || 'No email',
-            phone: contact.contactInfo?.phone || contact.phone || 'No phone',
-            uploadedBy: contact.uploadedBy || 'System',
-            uploadDate: contact.uploadDate,
-            assignedTo: contact.assignedTo || "Unassigned",
-            status: contact.status || "UNASSIGNED",
-            lastContact: contact.lastContact || new Date(0),
-            isDeleted: contact.isDeleted || false
-          }))
-          setAllContacts(transformedContacts)
-        }
+        fetchContacts(pagination.currentPage)
       }
 
       // Reset CSV import state
@@ -605,6 +728,32 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                 className="pl-10"
               />
             </div>
+            {/*Calendar filter for upload date */}
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter ? format(dateFilter, "PPP") : "Filter by Date"}
+                  {dateFilter && (
+                    <X className="ml-2 h-4 w-4" onClick={(e) => {
+                      e.stopPropagation();
+                      clearDateFilter();
+                    }} />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={dateFilter}
+                  onSelect={(date) => {
+                    setDateFilter(date);
+                    setIsCalendarOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -644,7 +793,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            Contacts ({filteredContacts.length})
+            Contacts ({pagination.totalContacts}) {/*Use pagination total */}
             {userRole === "admin" && (
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ({unassignedContacts.length} unassigned)
@@ -724,32 +873,47 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
                       )}
                     </TableCell>
                <TableCell>
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="sm">
-        <Eye className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <DropdownMenuItem 
-        onClick={() => handleStatusChange(contact._id, "COMPLETED")}
-        className={contact.status === "COMPLETED" ? "bg-green-50 text-green-700 font-medium" : ""}
-      >
-        <CheckCircle className={`mr-2 h-4 w-4 ${contact.status === "COMPLETED" ? "text-green-600" : "text-gray-400"}`} />
-        Mark as Completed
-        {contact.status === "COMPLETED" }
-      </DropdownMenuItem>
-      <DropdownMenuItem 
-        onClick={() => handleStatusChange(contact._id, "NOT COMPLETE")}
-        className={contact.status === "NOT COMPLETE" ? "bg-red-50 text-red-700 font-medium" : ""}
-      >
-        <XCircle className={`mr-2 h-4 w-4 ${contact.status === "NOT COMPLETE" ? "text-red-600" : "text-gray-400"}`} />
-        Mark as Not Complete
-        {contact.status === "NOT COMPLETE" }
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-</TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewDetails(contact)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+      
+                      {/*Hot Lead button */}
+                       <DropdownMenuItem 
+                         onClick={() => handleHotLeadChange(contact._id)}
+                         className={contact.status === "HOT LEAD" ? "bg-orange-50 text-orange-700 font-medium" : ""}
+                        >
+                        <Flame className={`mr-2 h-4 w-4 ${contact.status === "HOT LEAD" ? "text-orange-600" : "text-gray-400"}`} />
+                            Mark as Hot Lead
+                          {contact.status === "HOT LEAD" && " ✓"}
+                       </DropdownMenuItem>
+      
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(contact._id, "COMPLETED")}
+                            className={contact.status === "COMPLETED" ? "bg-green-50 text-green-700 font-medium" : ""}
+                          >
+                            <CheckCircle className={`mr-2 h-4 w-4 ${contact.status === "COMPLETED" ? "text-green-600" : "text-gray-400"}`} />
+                            Mark as Completed
+                            {contact.status === "COMPLETED" }
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleStatusChange(contact._id, "NOT COMPLETE")}
+                            className={contact.status === "NOT COMPLETE" ? "bg-red-50 text-red-700 font-medium" : ""}
+                          >
+                            <XCircle className={`mr-2 h-4 w-4 ${contact.status === "NOT COMPLETE" ? "text-red-600" : "text-gray-400"}`} />
+                            Mark as Not Complete
+                            {contact.status === "NOT COMPLETE" }
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                </TableCell>
 
                   </TableRow>
                 ))
@@ -762,6 +926,51 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               )}
             </TableBody>
           </Table>
+          
+          {/*Pagination controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing page {pagination.currentPage} of {pagination.totalPages}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.currentPage - 1)}
+                  disabled={!pagination.hasPrev}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.currentPage + 1)}
+                  disabled={!pagination.hasNext}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {selectedContact && (
+            <ContactPopup
+              open={openEditPopup}
+              onOpenChange={(open) => {
+                setOpenEditPopup(open);
+                if (!open) {
+                  setViewMode(false);
+                }
+              }}
+              contact={selectedContact}
+              viewMode={viewMode}
+            >
+              <Button className="hidden">View Contact Trigger</Button>
+            </ContactPopup>
+          )}
         </CardContent>
       </Card>
     </div>
