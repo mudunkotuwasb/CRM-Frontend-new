@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X, Calendar as CalendarIcon, MoreHorizontal } from "lucide-react"
+import { Search, Plus, Filter, Users, Eye, Upload, Download, FileSpreadsheet, X, Calendar as CalendarIcon, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import api from "@/lib/api"
 import endpoints from "@/lib/endpoints"
 import { useRouter } from "next/navigation"
@@ -68,6 +68,15 @@ interface CSVContact {
   phone: string
 }
 
+//Pagination interface
+interface PaginationInfo {
+  currentPage: number
+  totalPages: number
+  totalContacts: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
 export function AllContactsView({ userRole }: AllContactsViewProps) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
@@ -95,16 +104,39 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   const [openEditPopup, setOpenEditPopup] = useState(false)
   const [viewMode, setViewMode] = useState(false)
 
-  useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        const response = await api.get(endpoints.contact.getAllContacts)
-        if (!response.data?.allContacts) {
-          console.log("No contacts data found in response")
-        }
+  //Pagination state
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalContacts: 0,
+    hasNext: false,
+    hasPrev: false
+  })
+
+  //Fetch contacts with pagination
+  const fetchContacts = async (page: number = 1, search: string = searchTerm, filter: string = filterType, date: Date | undefined = dateFilter) => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      //Build query parameters for pagination and filtering
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10',
+        search,
+        filterType: filter
+      })
+      
+      //Add date filter
+      if (date) {
+        params.append('dateFilter', date.toISOString())
+      }
+      
+      const response = await api.get(`${endpoints.contact.getAllContacts}?${params}`)
+      
+      if (!response.data?.allContacts) {
+        console.log("No contacts data found in response")
+      }
 
         const transformedContacts = response.data.allContacts.map((contact: any) => ({
           _id: contact._id,
@@ -122,7 +154,12 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
           contactHistory: contact.contactHistory || [],
         }))
 
-        setAllContacts(transformedContacts)
+       setAllContacts(transformedContacts)
+      
+      //Update pagination info
+      if (response.data.pagination) {
+        setPagination(response.data.pagination)
+      }
       } catch (error) {
         console.error("Failed to fetch contacts:", error)
         setError("Failed to load contacts. Please try again.")
@@ -140,8 +177,25 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       }
     }
 
-    fetchContacts()
+  useEffect(() => {
+    fetchContacts(1)
   }, [router])
+
+  //Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchContacts(newPage)
+    }
+  }
+
+  //Handle search with debounce
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchContacts(1, searchTerm, filterType, dateFilter)
+    }, 500)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [searchTerm, filterType, dateFilter])
 
   const handleHotLeadChange = async (contactId: string) => {
   try {
@@ -165,7 +219,6 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
     toast.error("Failed to mark as Hot Lead. Please try again.");
   }
 };
-
 
   //Function to handle view details
   const handleViewDetails = (contact: Contact) => {
@@ -197,6 +250,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
   //Clear date filter
   const clearDateFilter = () => {
     setDateFilter(undefined)
+    fetchContacts(1, searchTerm, filterType, undefined)
   }
 
   const handleSelectContact = (contactId: string, checked: boolean) => {
@@ -477,25 +531,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
 
       // Refresh contacts list if any were successful
       if (successCount > 0) {
-        const refreshResponse = await api.get(endpoints.contact.getAllContacts)
-        if (refreshResponse.data?.allContacts) {
-          const transformedContacts = refreshResponse.data.allContacts.map((contact: any) => ({
-            _id: contact._id,
-            name: contact.Name || contact.name,
-            company: contact.company,
-            position: contact.position,
-            email: contact.contactInfo?.email || contact.email || 'No email',
-            phone: contact.contactInfo?.phone || contact.phone || 'No phone',
-            uploadedBy: contact.uploadedBy || 'System',
-            uploadDate: contact.uploadDate,
-            assignedTo: contact.assignedTo || "Unassigned",
-            status: contact.status || "UNASSIGNED",
-            lastContact: contact.lastContact || new Date(0),
-            isDeleted: contact.isDeleted || false,
-            contactHistory: contact.contactHistory || [],
-          }))
-          setAllContacts(transformedContacts)
-        }
+        fetchContacts(pagination.currentPage)
       }
 
       // Reset CSV import state
@@ -757,7 +793,7 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
       <Card>
         <CardHeader>
           <CardTitle>
-            Contacts ({filteredContacts.length})
+            Contacts ({pagination.totalContacts}) {/*Use pagination total */}
             {userRole === "admin" && (
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ({unassignedContacts.length} unassigned)
@@ -890,6 +926,35 @@ export function AllContactsView({ userRole }: AllContactsViewProps) {
               )}
             </TableBody>
           </Table>
+          
+          {/*Pagination controls */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing page {pagination.currentPage} of {pagination.totalPages}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.currentPage - 1)}
+                  disabled={!pagination.hasPrev}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(pagination.currentPage + 1)}
+                  disabled={!pagination.hasNext}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
           
           {selectedContact && (
             <ContactPopup

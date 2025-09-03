@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import axios from "axios"
 import endpoints from "@/lib/endpoints"
 import { Trash2 } from "lucide-react"
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
 
 interface Contact {
   _id: string;
@@ -54,7 +55,6 @@ const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
     </p>
   </div>
 );
-
 
 const mapDisplayToStatus = (displayStatus: string): string => {
   switch (displayStatus) {
@@ -100,6 +100,8 @@ export function ContactPopup({
     email: "",
     phone: "",
   })
+  const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false)
+  const [historyToDelete, setHistoryToDelete] = useState<{contactId: string, historyId: number} | null>(null)
 
   const validateForm = () => {
     const newErrors = {
@@ -279,25 +281,21 @@ export function ContactPopup({
     }
   };
 
-  const handleDeleteHistory = async (historyId: number) => {
-    if (!contact?._id) return;
-
-    if (!confirm("Are you sure you want to delete this contact history?")) {
-      return;
-    }
+  const handleDeleteHistory = async () => {
+    if (!historyToDelete || !contact?._id) return;
 
     try {
       console.log("Deleting history:", {
         contactId: contact._id,
-        historyId,
+        historyId: historyToDelete.historyId,
         endpoint: endpoints.contact.deleteContactHistory(
           contact._id,
-          historyId
+          historyToDelete.historyId
         ),
       });
 
       const response = await api.delete(
-        endpoints.contact.deleteContactHistory(contact._id, historyId)
+        endpoints.contact.deleteContactHistory(contact._id, historyToDelete.historyId)
       );
 
       if (response.data.success) {
@@ -333,10 +331,19 @@ export function ContactPopup({
           error.response?.data?.message || "Failed to delete contact history"
         );
       }
+    } finally {
+      setHistoryToDelete(null);
     }
   };
 
+    const confirmDeleteHistory = (historyId: number) => {
+    if (!contact?._id) return;
+    setHistoryToDelete({ contactId: contact._id, historyId });
+    setDeleteHistoryConfirmOpen(true);
+  };
+
   return (
+    <>
     <Dialog
       open={open !== undefined ? open : _open}
       onOpenChange={onOpenChange || setOpen}
@@ -456,7 +463,7 @@ export function ContactPopup({
                         </div>
                       )}
                       <button
-                        onClick={() => handleDeleteHistory(history.id)}
+                        onClick={() => confirmDeleteHistory(history.id)}
                         className="mt-3 ml-auto p-1 text-red-400 hover:text-red-600 block"
                         title="Delete this history"
                       >
@@ -693,5 +700,16 @@ export function ContactPopup({
         )}
       </DialogContent>
     </Dialog>
+
+      <ConfirmationDialog
+        open={deleteHistoryConfirmOpen}
+        onOpenChange={setDeleteHistoryConfirmOpen}
+        title="Delete Contact History"
+        description="Are you sure you want to delete this contact history? This action cannot be undone."
+        onConfirm={handleDeleteHistory}
+        confirmText="Delete"
+        variant="destructive"
+      />
+    </>
   )
 }

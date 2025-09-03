@@ -39,6 +39,8 @@ import axios from "axios"
 import { format } from "date-fns"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
+
 
 interface Contact {
   _id: string
@@ -94,6 +96,8 @@ export function ContactsTable({ userRole }: ContactsTableProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalContacts, setTotalContacts] = useState(0);
   const pageSize = 10; //Number of contacts per page
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [contactToDelete, setContactToDelete] = useState<Contact | null>(null)
   
   
   //Calendar filter state
@@ -284,15 +288,13 @@ const handlePageChange = (newPage: number) => {
   }
 };
 
-  const handleDeleteContact = async (contact: Contact) => {
-    if (!window.confirm(`Are you sure you want to delete ${contact.name} from ${contact.company}? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteContact = async () => {
+    if (!contactToDelete) return;
 
     try {
-      console.log(`Deleting contact with ID: ${contact._id}`);
-      
-      const response = await api.delete(endpoints.contact.deleteContact(contact._id), {
+      console.log(`Deleting contact with ID: ${contactToDelete._id}`);
+    
+        const response = await api.delete(endpoints.contact.deleteContact(contactToDelete._id), {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -300,28 +302,29 @@ const handlePageChange = (newPage: number) => {
       });
 
       if (response.data.success) {
-        toast.success("Contact deleted successfully");
-        setContacts(prev => prev.filter(c => c._id !== contact._id));
-        setFilteredContacts(prev => prev.filter(c => c._id !== contact._id));
+          toast.success("Contact deleted successfully");
+          setContacts(prev => prev.filter(c => c._id !== contactToDelete._id));
+          setFilteredContacts(prev => prev.filter(c => c._id !== contactToDelete._id));
       } else {
         throw new Error(response.data.message || "Failed to delete contact");
       }
     } catch (error: any) {
       console.error("Delete error details:", error);
-      
       if (error.response) {
         console.error("Server response:", error.response.data);
         console.error("Status code:", error.response.status);
         console.error("Error message:", error.response.data?.message);
         console.error("Error details:", error.response.data?.error);
       }
-      
+    
       const errorMessage = error.response?.data?.message || 
                            error.response?.data?.error || 
                            error.message || 
                            "Failed to delete contact";
-      
+    
       toast.error(`Delete failed: ${errorMessage}`);
+    } finally {
+      setContactToDelete(null);
     }
   }
 
@@ -884,7 +887,11 @@ const handlePageChange = (newPage: number) => {
                         </NotePopup>
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => handleDeleteContact(contact)}
+                          onClick={(e) => {
+                          e.preventDefault();
+                          setContactToDelete(contact);
+                          setDeleteConfirmOpen(true);
+                          }}
                           className="text-red-600 focus:text-red-600"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -950,6 +957,16 @@ const handlePageChange = (newPage: number) => {
               <Button className="hidden">Edit Contact Trigger</Button>
             </ContactPopup>
           )}
+
+          <ConfirmationDialog
+            open={deleteConfirmOpen}
+            onOpenChange={setDeleteConfirmOpen}
+            title="Delete Contact"
+            description={`Are you sure you want to delete ${contactToDelete?.name} from ${contactToDelete?.company}? This action cannot be undone.`}
+            onConfirm={handleDeleteContact}
+            confirmText="Delete"
+            variant="destructive"
+          />
         </CardContent>
       </Card>
     </div>
