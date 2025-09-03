@@ -1,7 +1,7 @@
 "use client"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Phone, BarChart3, Settings, LogOut, UserPlus, Download } from "lucide-react"
+import { LayoutDashboard, Phone, BarChart3, Settings, LogOut, UserPlus, Download, PlusCircle } from "lucide-react"
 import Link from "next/link"
 
 interface SidebarProps {
@@ -22,6 +22,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { icon: Phone, label: "All Contacts", href: "/all-contacts" },
     { icon: Phone, label: "My Contacts", href: "/contacts" },
     { icon: UserPlus, label: "Users", href: "/users" },
+    { icon: PlusCircle, label: "Add Staff Member", href: "/add-staff" }, // ✅ Added here
     { icon: BarChart3, label: "Team Stats", href: "/stats" },
     { icon: BarChart3, label: "Analytics", href: "/analytics" },
     { icon: Download, label: "Import/Export", href: "/import-export" },
