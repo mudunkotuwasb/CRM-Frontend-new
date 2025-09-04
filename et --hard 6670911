@@ -1,0 +1,33 @@
+[33m6670911[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33m481a0c3[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{1}: checkout: moving from main to main
+[33m481a0c3[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{2}: reset: moving to HEAD~1
+[33mdb0037b[m HEAD@{3}: checkout: moving from main to main
+[33mdb0037b[m HEAD@{4}: reset: moving to HEAD~1
+[33mdb545c8[m HEAD@{5}: checkout: moving from main to main
+[33mdb545c8[m HEAD@{6}: reset: moving to HEAD~1
+[33m6cbd8f3[m HEAD@{7}: checkout: moving from main to main
+[33m6cbd8f3[m HEAD@{8}: reset: moving to HEAD~1
+[33m2a8ab90[m HEAD@{9}: checkout: moving from main to main
+[33m2a8ab90[m HEAD@{10}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33m6cbd8f3[m HEAD@{11}: commit: previous commit
+[33mdb545c8[m HEAD@{12}: reset: moving to HEAD~1
+[33m7d1d026[m HEAD@{13}: checkout: moving from main to main
+[33m7d1d026[m HEAD@{14}: commit: aded staff members
+[33mdb545c8[m HEAD@{15}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mdb0037b[m HEAD@{16}: commit: added add staff members
+[33m481a0c3[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{17}: Branch: renamed refs/heads/master to refs/heads/main
+[33m481a0c3[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{19}: commit: final changes
+[33m6670911[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{20}: commit: corrected version
+[33m65aa346[m HEAD@{21}: commit (merge): Merge branch 'master' of https://github.com/IsharaNethmini/CRM-frontend
+[33m8d65122[m HEAD@{22}: commit: added actions
+[33ma247e92[m HEAD@{23}: commit: import contacts done
+[33m84b539c[m HEAD@{24}: pull --tags origin master: Fast-forward
+[33mbc7afc0[m HEAD@{25}: pull --tags origin master: Fast-forward
+[33m744cf11[m HEAD@{26}: commit: My contacts-Corrected
+[33m707043e[m[33m ([m[1;31morigin/bhagya-dev[m[33m, [m[1;32mbhagya-dev[m[33m)[m HEAD@{27}: checkout: moving from bhagya-dev to master
+[33m707043e[m[33m ([m[1;31morigin/bhagya-dev[m[33m, [m[1;32mbhagya-dev[m[33m)[m HEAD@{28}: checkout: moving from master to bhagya-dev
+[33m707043e[m[33m ([m[1;31morigin/bhagya-dev[m[33m, [m[1;32mbhagya-dev[m[33m)[m HEAD@{29}: pull origin master: Fast-forward
+[33m0f1c70b[m HEAD@{30}: pull origin master: Fast-forward
+[33m28dc8bb[m HEAD@{31}: checkout: moving from master to master
+[33m28dc8bb[m HEAD@{32}: checkout: moving from master to master
+[33m28dc8bb[m HEAD@{33}: 
