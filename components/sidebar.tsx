@@ -22,7 +22,7 @@ export function Sidebar({ userRole }: SidebarProps) {
     { icon: Phone, label: "All Contacts", href: "/all-contacts" },
     { icon: Phone, label: "My Contacts", href: "/contacts" },
     { icon: UserPlus, label: "Users", href: "/users" },
-    { icon: PlusCircle, label: "Add Staff Member", href: "/add-staff" }, // ✅ Added here
+    { icon: PlusCircle, label: "Add Staff Member", href: "/add-staff" },
     { icon: BarChart3, label: "Team Stats", href: "/stats" },
     { icon: BarChart3, label: "Analytics", href: "/analytics" },
     { icon: Download, label: "Import/Export", href: "/import-export" },
